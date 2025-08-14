@@ -10,7 +10,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground" style={{ backgroundColor: '#F9F7F3' }}>
       <div className="flex h-screen">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block">

@@ -8,6 +8,15 @@ import backend from '~backend/client';
 export type TaskPriority = 'high' | 'medium' | 'low';
 export type TaskStatus = 'completed' | 'in-progress' | 'not-started';
 
+export interface Subtask {
+  id: string;
+  taskId: string;
+  title: string;
+  completed: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -20,6 +29,7 @@ export interface Task {
   endDate?: Date;
   createdAt: Date;
   updatedAt: Date;
+  subtasks?: Subtask[];
 }
 
 const categories = ['All', 'Kitchen', 'Bathroom', 'Living Room', 'Bedroom', 'Exterior', 'Other'];
