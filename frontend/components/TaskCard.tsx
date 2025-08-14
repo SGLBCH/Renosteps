@@ -12,10 +12,23 @@ import type { Task, Subtask } from './TaskCardsView';
 
 interface TaskCardProps {
   task: Task;
-  onTaskUpdated: () => void;
+  onTaskUpdated: (taskId: string, updates: Partial<Task>) => void;
+  onTaskDeleted: (taskId: string) => void;
+  onSubtaskUpdated: (taskId: string, subtaskId: string, updates: Partial<Subtask>) => void;
+  onSubtaskAdded: (taskId: string, subtask: Subtask) => void;
+  onSubtaskDeleted: (taskId: string, subtaskId: string) => void;
+  onError: () => void;
 }
 
-export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
+export function TaskCard({ 
+  task, 
+  onTaskUpdated, 
+  onTaskDeleted, 
+  onSubtaskUpdated, 
+  onSubtaskAdded, 
+  onSubtaskDeleted,
+  onError 
+}: TaskCardProps) {
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [loading, setLoading] = useState(false);
@@ -78,13 +91,15 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
       return;
     }
 
+    // Optimistically remove the task
+    onTaskDeleted(task.id);
+
     try {
       await backend.tasks.deleteTask({ id: task.id });
       toast({
         title: "Task deleted",
         description: "The task has been successfully deleted.",
       });
-      onTaskUpdated();
     } catch (error) {
       console.error('Error deleting task:', error);
       toast({
@@ -92,17 +107,21 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
         description: "Failed to delete the task. Please try again.",
         variant: "destructive",
       });
+      // Revert by reloading tasks
+      onError();
     }
   };
 
   const handleCompleteTask = async () => {
+    // Optimistically update the task
+    onTaskUpdated(task.id, { status: 'completed', progress: 100 });
+
     try {
       await backend.tasks.completeTask({ id: task.id });
       toast({
         title: "Task completed",
         description: "The task has been marked as completed.",
       });
-      onTaskUpdated();
     } catch (error) {
       console.error('Error completing task:', error);
       toast({
@@ -110,6 +129,8 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
         description: "Failed to complete the task. Please try again.",
         variant: "destructive",
       });
+      // Revert by reloading tasks
+      onError();
     }
   };
 
@@ -118,17 +139,29 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
 
     try {
       setLoading(true);
-      await backend.tasks.createSubtask({
+      const response = await backend.tasks.createSubtask({
         taskId: task.id,
         title: newSubtaskTitle.trim(),
       });
+      
+      // Optimistically add the subtask
+      const newSubtask: Subtask = {
+        id: response.subtask.id,
+        taskId: task.id,
+        title: newSubtaskTitle.trim(),
+        completed: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      onSubtaskAdded(task.id, newSubtask);
       setNewSubtaskTitle('');
       setShowAddSubtask(false);
+      
       toast({
         title: "Subtask added",
         description: "The subtask has been successfully added.",
       });
-      onTaskUpdated();
     } catch (error) {
       console.error('Error adding subtask:', error);
       toast({
@@ -142,12 +175,14 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
   };
 
   const handleToggleSubtask = async (subtask: Subtask) => {
+    // Optimistically update the subtask
+    onSubtaskUpdated(task.id, subtask.id, { completed: !subtask.completed });
+
     try {
       await backend.tasks.updateSubtask({
         id: subtask.id,
         completed: !subtask.completed,
       });
-      onTaskUpdated();
     } catch (error) {
       console.error('Error updating subtask:', error);
       toast({
@@ -155,6 +190,8 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
         description: "Failed to update the subtask. Please try again.",
         variant: "destructive",
       });
+      // Revert by reloading tasks
+      onError();
     }
   };
 
@@ -165,6 +202,9 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
 
   const handleSaveSubtaskEdit = async (subtaskId: string) => {
     if (!editSubtaskTitle.trim()) return;
+
+    // Optimistically update the subtask
+    onSubtaskUpdated(task.id, subtaskId, { title: editSubtaskTitle.trim() });
 
     try {
       await backend.tasks.updateSubtask({
@@ -177,7 +217,6 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
         title: "Subtask updated",
         description: "The subtask has been successfully updated.",
       });
-      onTaskUpdated();
     } catch (error) {
       console.error('Error updating subtask:', error);
       toast({
@@ -185,6 +224,8 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
         description: "Failed to update the subtask. Please try again.",
         variant: "destructive",
       });
+      // Revert by reloading tasks
+      onError();
     }
   };
 
@@ -198,13 +239,15 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
       return;
     }
 
+    // Optimistically remove the subtask
+    onSubtaskDeleted(task.id, subtaskId);
+
     try {
       await backend.tasks.deleteSubtask({ id: subtaskId });
       toast({
         title: "Subtask deleted",
         description: "The subtask has been successfully deleted.",
       });
-      onTaskUpdated();
     } catch (error) {
       console.error('Error deleting subtask:', error);
       toast({
@@ -212,7 +255,13 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
         description: "Failed to delete the subtask. Please try again.",
         variant: "destructive",
       });
+      // Revert by reloading tasks
+      onError();
     }
+  };
+
+  const handleTaskSaved = (updatedTask: Task) => {
+    onTaskUpdated(task.id, updatedTask);
   };
 
   // Sort subtasks: incomplete first, then completed
@@ -250,7 +299,7 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
             <Check className="h-4 w-4" />
           </Button>
         )}
-        <TaskDialog task={task} onTaskSaved={onTaskUpdated} />
+        <TaskDialog task={task} onTaskSaved={handleTaskSaved} />
         <Button 
           variant="ghost" 
           size="icon" 

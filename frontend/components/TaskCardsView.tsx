@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TaskCard } from './TaskCard';
 import { FilterChips } from './FilterChips';
 import { TaskDialog } from './TaskDialog';
@@ -41,7 +41,7 @@ export function TaskCardsView() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -58,10 +58,68 @@ export function TaskCardsView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadTasks();
+  }, [loadTasks]);
+
+  // Optimistic update functions
+  const updateTaskOptimistically = useCallback((taskId: string, updates: Partial<Task>) => {
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId ? { ...task, ...updates } : task
+      )
+    );
+  }, []);
+
+  const updateSubtaskOptimistically = useCallback((taskId: string, subtaskId: string, updates: Partial<Subtask>) => {
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId 
+          ? {
+              ...task,
+              subtasks: task.subtasks?.map(subtask =>
+                subtask.id === subtaskId ? { ...subtask, ...updates } : subtask
+              )
+            }
+          : task
+      )
+    );
+  }, []);
+
+  const addSubtaskOptimistically = useCallback((taskId: string, subtask: Subtask) => {
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId 
+          ? {
+              ...task,
+              subtasks: [...(task.subtasks || []), subtask]
+            }
+          : task
+      )
+    );
+  }, []);
+
+  const removeSubtaskOptimistically = useCallback((taskId: string, subtaskId: string) => {
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId 
+          ? {
+              ...task,
+              subtasks: task.subtasks?.filter(subtask => subtask.id !== subtaskId)
+            }
+          : task
+      )
+    );
+  }, []);
+
+  const removeTaskOptimistically = useCallback((taskId: string) => {
+    setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+  }, []);
+
+  const addTaskOptimistically = useCallback((task: Task) => {
+    setTasks(prevTasks => [task, ...prevTasks]);
   }, []);
 
   const filteredTasks = selectedCategory === 'All' 
@@ -111,7 +169,10 @@ export function TaskCardsView() {
       {/* Header with Add Task button */}
       <div className="flex justify-between items-center flex-shrink-0 mb-6">
         <h2 className="text-2xl font-semibold">Tasks</h2>
-        <TaskDialog onTaskSaved={loadTasks} />
+        <TaskDialog 
+          onTaskSaved={loadTasks}
+          onTaskCreated={addTaskOptimistically}
+        />
       </div>
 
       {/* Filter Chips */}
@@ -133,12 +194,24 @@ export function TaskCardsView() {
                 : `No tasks found in the ${selectedCategory} category.`
               }
             </div>
-            <TaskDialog onTaskSaved={loadTasks} />
+            <TaskDialog 
+              onTaskSaved={loadTasks}
+              onTaskCreated={addTaskOptimistically}
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-6">
             {filteredTasks.map((task) => (
-              <TaskCard key={task.id} task={task} onTaskUpdated={loadTasks} />
+              <TaskCard 
+                key={task.id} 
+                task={task} 
+                onTaskUpdated={updateTaskOptimistically}
+                onTaskDeleted={removeTaskOptimistically}
+                onSubtaskUpdated={updateSubtaskOptimistically}
+                onSubtaskAdded={addSubtaskOptimistically}
+                onSubtaskDeleted={removeSubtaskOptimistically}
+                onError={loadTasks}
+              />
             ))}
           </div>
         )}

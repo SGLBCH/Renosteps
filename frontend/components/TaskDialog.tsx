@@ -17,7 +17,8 @@ import type { Task, TaskPriority, TaskStatus } from './TaskCardsView';
 
 interface TaskDialogProps {
   task?: Task;
-  onTaskSaved: () => void;
+  onTaskSaved?: (task: Task) => void;
+  onTaskCreated?: (task: Task) => void;
   trigger?: React.ReactNode;
 }
 
@@ -36,7 +37,7 @@ const categories = ['kitchen', 'bathroom', 'living room', 'bedroom', 'exterior',
 const priorities: TaskPriority[] = ['high', 'medium', 'low'];
 const statuses: TaskStatus[] = ['not-started', 'in-progress', 'completed'];
 
-export function TaskDialog({ task, onTaskSaved, trigger }: TaskDialogProps) {
+export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -85,7 +86,7 @@ export function TaskDialog({ task, onTaskSaved, trigger }: TaskDialogProps) {
     try {
       if (task) {
         // Update existing task
-        await backend.tasks.update({
+        const response = await backend.tasks.update({
           id: task.id,
           title: formData.title,
           description: formData.description || undefined,
@@ -96,13 +97,18 @@ export function TaskDialog({ task, onTaskSaved, trigger }: TaskDialogProps) {
           startDate: formData.startDate,
           endDate: formData.endDate,
         });
+        
         toast({
           title: "Task updated",
           description: "The task has been successfully updated.",
         });
+        
+        if (onTaskSaved) {
+          onTaskSaved(response.task);
+        }
       } else {
         // Create new task
-        await backend.tasks.create({
+        const response = await backend.tasks.create({
           title: formData.title,
           description: formData.description || undefined,
           category: formData.category,
@@ -112,14 +118,18 @@ export function TaskDialog({ task, onTaskSaved, trigger }: TaskDialogProps) {
           startDate: formData.startDate,
           endDate: formData.endDate,
         });
+        
         toast({
           title: "Task created",
           description: "The task has been successfully created.",
         });
+        
+        if (onTaskCreated) {
+          onTaskCreated(response.task);
+        }
       }
 
       setOpen(false);
-      onTaskSaved();
     } catch (error) {
       console.error('Error saving task:', error);
       toast({
