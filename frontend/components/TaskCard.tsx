@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, CheckCircle, Clock, XCircle, Edit, Trash2, Plus, Check } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, XCircle, Edit, Trash2, Plus, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,9 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
   const [showAddSubtask, setShowAddSubtask] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [editingSubtask, setEditingSubtask] = useState<string | null>(null);
+  const [editSubtaskTitle, setEditSubtaskTitle] = useState('');
+  const [showAllSubtasks, setShowAllSubtasks] = useState(false);
   const { toast } = useToast();
 
   const getPriorityVariant = (priority: string) => {
@@ -155,7 +158,46 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
     }
   };
 
+  const handleEditSubtask = (subtask: Subtask) => {
+    setEditingSubtask(subtask.id);
+    setEditSubtaskTitle(subtask.title);
+  };
+
+  const handleSaveSubtaskEdit = async (subtaskId: string) => {
+    if (!editSubtaskTitle.trim()) return;
+
+    try {
+      await backend.tasks.updateSubtask({
+        id: subtaskId,
+        title: editSubtaskTitle.trim(),
+      });
+      setEditingSubtask(null);
+      setEditSubtaskTitle('');
+      toast({
+        title: "Subtask updated",
+        description: "The subtask has been successfully updated.",
+      });
+      onTaskUpdated();
+    } catch (error) {
+      console.error('Error updating subtask:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update the subtask. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelSubtaskEdit = () => {
+    setEditingSubtask(null);
+    setEditSubtaskTitle('');
+  };
+
   const handleDeleteSubtask = async (subtaskId: string) => {
+    if (!confirm('Are you sure you want to delete this subtask?')) {
+      return;
+    }
+
     try {
       await backend.tasks.deleteSubtask({ id: subtaskId });
       toast({
@@ -173,8 +215,18 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
     }
   };
 
-  const completedSubtasks = task.subtasks?.filter(s => s.completed).length || 0;
-  const totalSubtasks = task.subtasks?.length || 0;
+  // Sort subtasks: incomplete first, then completed
+  const sortedSubtasks = task.subtasks ? [...task.subtasks].sort((a, b) => {
+    if (a.completed === b.completed) return 0;
+    return a.completed ? 1 : -1;
+  }) : [];
+
+  const completedSubtasks = sortedSubtasks.filter(s => s.completed).length;
+  const totalSubtasks = sortedSubtasks.length;
+
+  // Determine which subtasks to show
+  const subtasksToShow = showAllSubtasks ? sortedSubtasks : sortedSubtasks.slice(0, 2);
+  const hiddenSubtasksCount = Math.max(0, totalSubtasks - 2);
 
   return (
     <div className="bg-card border border-border rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200 relative animate-fade-in">
@@ -243,32 +295,107 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
             </div>
 
             <div className="space-y-2">
-              {task.subtasks?.map((subtask) => (
+              {subtasksToShow.map((subtask) => (
                 <div key={subtask.id} className="flex items-center gap-2 group">
-                  <Checkbox
-                    checked={subtask.completed}
-                    onCheckedChange={() => handleToggleSubtask(subtask)}
-                    className="h-4 w-4"
-                  />
-                  <span 
-                    className={`text-sm flex-1 ${
-                      subtask.completed 
-                        ? 'line-through text-muted-foreground' 
-                        : 'text-foreground'
-                    }`}
-                  >
-                    {subtask.title}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteSubtask(subtask.id)}
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-1">
+                    {subtask.completed && (
+                      <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                    )}
+                    <Checkbox
+                      checked={subtask.completed}
+                      onCheckedChange={() => handleToggleSubtask(subtask)}
+                      className="h-4 w-4 flex-shrink-0"
+                    />
+                    {editingSubtask === subtask.id ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Input
+                          value={editSubtaskTitle}
+                          onChange={(e) => setEditSubtaskTitle(e.target.value)}
+                          className="text-sm h-7 flex-1"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleSaveSubtaskEdit(subtask.id);
+                            } else if (e.key === 'Escape') {
+                              handleCancelSubtaskEdit();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveSubtaskEdit(subtask.id)}
+                          disabled={!editSubtaskTitle.trim()}
+                          className="h-7 px-2 text-xs"
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCancelSubtaskEdit}
+                          className="h-7 px-2 text-xs"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <span 
+                        className={`text-sm flex-1 ${
+                          subtask.completed 
+                            ? 'line-through text-muted-foreground' 
+                            : 'text-foreground'
+                        }`}
+                      >
+                        {subtask.title}
+                      </span>
+                    )}
+                  </div>
+                  {editingSubtask !== subtask.id && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditSubtask(subtask)}
+                        className="h-6 w-6 p-0"
+                        title="Edit subtask"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteSubtask(subtask.id)}
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        title="Delete subtask"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
+
+              {/* Show more/less button */}
+              {totalSubtasks > 2 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAllSubtasks(!showAllSubtasks)}
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground w-full justify-start"
+                >
+                  {showAllSubtasks ? (
+                    <>
+                      <ChevronUp className="h-3 w-3 mr-1" />
+                      Show less
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3 w-3 mr-1" />
+                      +{hiddenSubtasksCount} more
+                    </>
+                  )}
+                </Button>
+              )}
 
               {showAddSubtask && (
                 <div className="flex items-center gap-2">
@@ -276,7 +403,7 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
                     value={newSubtaskTitle}
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
                     placeholder="Enter subtask title"
-                    className="text-sm h-8"
+                    className="text-sm h-8 flex-1"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         handleAddSubtask();
@@ -309,12 +436,6 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
                 </div>
               )}
             </div>
-
-            {totalSubtasks > 0 && (
-              <div className="text-xs text-muted-foreground">
-                +{Math.max(0, totalSubtasks - 2)} more
-              </div>
-            )}
           </div>
         ) : (
           <div className="flex items-center justify-between">
