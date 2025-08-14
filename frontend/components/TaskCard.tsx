@@ -399,11 +399,12 @@ export function TaskCard({ task, onTaskUpdated }: TaskCardProps) {
 
               {showAddSubtask && (
                 <div className="flex items-center gap-2">
+                  <div className="w-6 flex-shrink-0"></div>
                   <Input
                     value={newSubtaskTitle}
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
                     placeholder="Enter subtask title"
-                    className="text-sm h-8 flex-1"
+                    className="text-sm h-8 flex-1 max-w-[60%]"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         handleAddSubtask();
