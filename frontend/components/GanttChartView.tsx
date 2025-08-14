@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
@@ -8,12 +8,32 @@ import type { Task } from './TaskCardsView';
 
 type ViewMode = 'day' | 'week' | 'month';
 
+interface DragState {
+  isDragging: boolean;
+  taskId: string | null;
+  startX: number;
+  startColumn: number;
+  currentColumn: number;
+  originalStartDate: Date | null;
+  originalEndDate: Date | null;
+}
+
 export function GanttChartView() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dragState, setDragState] = useState<DragState>({
+    isDragging: false,
+    taskId: null,
+    startX: 0,
+    startColumn: 0,
+    currentColumn: 0,
+    originalStartDate: null,
+    originalEndDate: null,
+  });
   const { toast } = useToast();
+  const ganttRef = useRef<HTMLDivElement>(null);
 
   const loadTasks = async () => {
     try {
@@ -182,7 +202,7 @@ export function GanttChartView() {
     const width = ((endColumn - startColumn + 1) / totalColumns) * 100;
     const left = (startColumn / totalColumns) * 100;
     
-    return { left: `${left}%`, width: `${width}%` };
+    return { left: `${left}%`, width: `${width}%`, startColumn, endColumn };
   };
 
   const getTaskBarColor = (priority: string) => {
@@ -196,6 +216,135 @@ export function GanttChartView() {
       default:
         return 'bg-blue-500';
     }
+  };
+
+  const getColumnFromX = (x: number) => {
+    if (!ganttRef.current) return 0;
+    
+    const ganttRect = ganttRef.current.getBoundingClientRect();
+    const timelineStart = 300; // Width of the task info column
+    const timelineWidth = ganttRect.width - timelineStart;
+    const columnWidth = timelineWidth / dateHeaders.length;
+    
+    const relativeX = x - ganttRect.left - timelineStart;
+    const column = Math.floor(relativeX / columnWidth);
+    
+    return Math.max(0, Math.min(column, dateHeaders.length - 1));
+  };
+
+  const calculateNewDates = (task: Task, newStartColumn: number) => {
+    if (!task.startDate || !task.endDate) return null;
+    
+    const originalStart = new Date(task.startDate);
+    const originalEnd = new Date(task.endDate);
+    const taskDuration = originalEnd.getTime() - originalStart.getTime();
+    
+    const newStartDate = new Date(dateHeaders[newStartColumn].date);
+    const newEndDate = new Date(newStartDate.getTime() + taskDuration);
+    
+    return { startDate: newStartDate, endDate: newEndDate };
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, task: Task) => {
+    e.preventDefault();
+    
+    const position = calculateTaskBarPosition(task);
+    if (!position || !task.startDate || !task.endDate) return;
+    
+    const column = getColumnFromX(e.clientX);
+    
+    setDragState({
+      isDragging: true,
+      taskId: task.id,
+      startX: e.clientX,
+      startColumn: column,
+      currentColumn: column,
+      originalStartDate: new Date(task.startDate),
+      originalEndDate: new Date(task.endDate),
+    });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragState.isDragging) return;
+    
+    const column = getColumnFromX(e.clientX);
+    setDragState(prev => ({ ...prev, currentColumn: column }));
+  };
+
+  const handleMouseUp = async () => {
+    if (!dragState.isDragging || !dragState.taskId) return;
+    
+    const task = tasks.find(t => t.id === dragState.taskId);
+    if (!task) return;
+    
+    const columnDiff = dragState.currentColumn - dragState.startColumn;
+    if (columnDiff === 0) {
+      // No movement, just reset drag state
+      setDragState({
+        isDragging: false,
+        taskId: null,
+        startX: 0,
+        startColumn: 0,
+        currentColumn: 0,
+        originalStartDate: null,
+        originalEndDate: null,
+      });
+      return;
+    }
+    
+    const newDates = calculateNewDates(task, dragState.currentColumn);
+    if (!newDates) return;
+    
+    try {
+      await backend.tasks.update({
+        id: task.id,
+        startDate: newDates.startDate,
+        endDate: newDates.endDate,
+      });
+      
+      toast({
+        title: "Task rescheduled",
+        description: `${task.title} has been moved to ${newDates.startDate.toLocaleDateString()}.`,
+      });
+      
+      await loadTasks();
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reschedule the task. Please try again.",
+        variant: "destructive",
+      });
+    }
+    
+    setDragState({
+      isDragging: false,
+      taskId: null,
+      startX: 0,
+      startColumn: 0,
+      currentColumn: 0,
+      originalStartDate: null,
+      originalEndDate: null,
+    });
+  };
+
+  const getDragPreviewPosition = (task: Task) => {
+    if (!dragState.isDragging || dragState.taskId !== task.id) return null;
+    
+    const columnDiff = dragState.currentColumn - dragState.startColumn;
+    if (columnDiff === 0) return null;
+    
+    const totalColumns = dateHeaders.length;
+    const originalPosition = calculateTaskBarPosition(task);
+    if (!originalPosition) return null;
+    
+    const columnWidth = 100 / totalColumns;
+    const newLeft = parseFloat(originalPosition.left.replace('%', '')) + (columnDiff * columnWidth);
+    
+    return {
+      left: `${Math.max(0, Math.min(newLeft, 100 - parseFloat(originalPosition.width.replace('%', ''))))}%`,
+      width: originalPosition.width,
+    };
   };
 
   if (loading) {
@@ -253,7 +402,13 @@ export function GanttChartView() {
         </div>
 
         {/* Gantt Grid */}
-        <div className="overflow-auto">
+        <div 
+          className="overflow-auto"
+          ref={ganttRef}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
           <div className="min-w-[800px]">
             {/* Header Row */}
             <div className={`grid border-b border-border sticky top-0 bg-card z-10`} style={{ gridTemplateColumns: `300px repeat(${dateHeaders.length}, 1fr)` }}>
@@ -274,9 +429,11 @@ export function GanttChartView() {
               ) : (
                 tasks.map((task) => {
                   const barPosition = calculateTaskBarPosition(task);
+                  const dragPreviewPosition = getDragPreviewPosition(task);
+                  const isDraggingThis = dragState.isDragging && dragState.taskId === task.id;
                   
                   return (
-                    <div key={task.id} className={`grid hover:bg-accent/50 transition-colors`} style={{ gridTemplateColumns: `300px repeat(${dateHeaders.length}, 1fr)` }}>
+                    <div key={task.id} className={`grid hover:bg-accent/50 transition-colors ${isDraggingThis ? 'bg-accent/30' : ''}`} style={{ gridTemplateColumns: `300px repeat(${dateHeaders.length}, 1fr)` }}>
                       {/* Task Info - Sticky Left Column */}
                       <div className="p-3 border-r border-border bg-card sticky left-0 z-10">
                         <div className="font-medium">{task.title}</div>
@@ -294,17 +451,35 @@ export function GanttChartView() {
                           ))}
                         </div>
                         
-                        {/* Task Bar */}
+                        {/* Original Task Bar */}
                         {barPosition && (
                           <div
-                            className="absolute top-1/2 transform -translate-y-1/2 h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm"
+                            className={`absolute top-1/2 transform -translate-y-1/2 h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm cursor-move select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity`}
                             style={{
                               left: barPosition.left,
                               width: barPosition.width,
                             }}
+                            onMouseDown={(e) => handleMouseDown(e, task)}
                           >
-                            <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)} opacity-80 hover:opacity-100 transition-opacity`}>
+                            <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)}`}>
                               <div className="w-full h-full bg-white/20 rounded-md flex items-center justify-center">
+                                <span className="truncate px-2">{task.title}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Drag Preview */}
+                        {dragPreviewPosition && isDraggingThis && (
+                          <div
+                            className="absolute top-1/2 transform -translate-y-1/2 h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-lg border-2 border-primary z-20 pointer-events-none"
+                            style={{
+                              left: dragPreviewPosition.left,
+                              width: dragPreviewPosition.width,
+                            }}
+                          >
+                            <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)} opacity-90`}>
+                              <div className="w-full h-full bg-white/30 rounded-md flex items-center justify-center">
                                 <span className="truncate px-2">{task.title}</span>
                               </div>
                             </div>
@@ -334,6 +509,9 @@ export function GanttChartView() {
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-green-500 rounded"></div>
               <span>Low</span>
+            </div>
+            <div className="ml-6 text-muted-foreground">
+              💡 Drag task bars to reschedule
             </div>
           </div>
         </div>
