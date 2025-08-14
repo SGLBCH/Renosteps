@@ -69,12 +69,12 @@ export function TaskCardsView() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
+      <div className="h-full flex flex-col">
+        <div className="flex justify-between items-center flex-shrink-0">
           <h2 className="text-2xl font-semibold">Tasks</h2>
           <TaskDialog onTaskSaved={loadTasks} />
         </div>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex-1 flex items-center justify-center">
           <div className="text-muted-foreground">Loading tasks...</div>
         </div>
       </div>
@@ -82,38 +82,42 @@ export function TaskCardsView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col">
       {/* Header with Add Task button */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-shrink-0 mb-6">
         <h2 className="text-2xl font-semibold">Tasks</h2>
         <TaskDialog onTaskSaved={loadTasks} />
       </div>
 
       {/* Filter Chips */}
-      <FilterChips 
-        categories={categories}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
+      <div className="flex-shrink-0 mb-6">
+        <FilterChips 
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+        />
+      </div>
 
-      {/* Task Cards Grid */}
-      {filteredTasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-center">
-          <div className="text-muted-foreground mb-4">
-            {selectedCategory === 'All' 
-              ? 'No tasks found. Create your first task to get started!' 
-              : `No tasks found in the ${selectedCategory} category.`
-            }
+      {/* Task Cards Grid - Scrollable Area */}
+      <div className="flex-1 overflow-y-auto">
+        {filteredTasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="text-muted-foreground mb-4">
+              {selectedCategory === 'All' 
+                ? 'No tasks found. Create your first task to get started!' 
+                : `No tasks found in the ${selectedCategory} category.`
+              }
+            </div>
+            <TaskDialog onTaskSaved={loadTasks} />
           </div>
-          <TaskDialog onTaskSaved={loadTasks} />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredTasks.map((task) => (
-            <TaskCard key={task.id} task={task} onTaskUpdated={loadTasks} />
-          ))}
-        </div>
-      )}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-6">
+            {filteredTasks.map((task) => (
+              <TaskCard key={task.id} task={task} onTaskUpdated={loadTasks} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
