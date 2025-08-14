@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { TaskDialog } from './TaskDialog';
+import { ErrorBoundary } from './ErrorBoundary';
 import backend from '~backend/client';
 import type { Task, Subtask } from './TaskCardsView';
 
@@ -20,7 +21,7 @@ interface TaskCardProps {
   onError: () => void;
 }
 
-export function TaskCard({ 
+function TaskCardContent({ 
   task, 
   onTaskUpdated, 
   onTaskDeleted, 
@@ -299,7 +300,9 @@ export function TaskCard({
             <Check className="h-4 w-4" />
           </Button>
         )}
-        <TaskDialog task={task} onTaskSaved={handleTaskSaved} />
+        <ErrorBoundary>
+          <TaskDialog task={task} onTaskSaved={handleTaskSaved} />
+        </ErrorBoundary>
         <Button 
           variant="ghost" 
           size="icon" 
@@ -345,83 +348,85 @@ export function TaskCard({
 
             <div className="space-y-2">
               {subtasksToShow.map((subtask) => (
-                <div key={subtask.id} className="flex items-center gap-2 group">
-                  <div className="flex items-center gap-2 flex-1">
-                    {subtask.completed && (
-                      <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
-                    )}
-                    <Checkbox
-                      checked={subtask.completed}
-                      onCheckedChange={() => handleToggleSubtask(subtask)}
-                      className="h-4 w-4 flex-shrink-0"
-                    />
-                    {editingSubtask === subtask.id ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <Input
-                          value={editSubtaskTitle}
-                          onChange={(e) => setEditSubtaskTitle(e.target.value)}
-                          className="text-sm h-7 flex-1"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleSaveSubtaskEdit(subtask.id);
-                            } else if (e.key === 'Escape') {
-                              handleCancelSubtaskEdit();
-                            }
-                          }}
-                          autoFocus
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => handleSaveSubtaskEdit(subtask.id)}
-                          disabled={!editSubtaskTitle.trim()}
-                          className="h-7 px-2 text-xs"
+                <ErrorBoundary key={subtask.id}>
+                  <div className="flex items-center gap-2 group">
+                    <div className="flex items-center gap-2 flex-1">
+                      {subtask.completed && (
+                        <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                      )}
+                      <Checkbox
+                        checked={subtask.completed}
+                        onCheckedChange={() => handleToggleSubtask(subtask)}
+                        className="h-4 w-4 flex-shrink-0"
+                      />
+                      {editingSubtask === subtask.id ? (
+                        <div className="flex items-center gap-2 flex-1">
+                          <Input
+                            value={editSubtaskTitle}
+                            onChange={(e) => setEditSubtaskTitle(e.target.value)}
+                            className="text-sm h-7 flex-1"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveSubtaskEdit(subtask.id);
+                              } else if (e.key === 'Escape') {
+                                handleCancelSubtaskEdit();
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveSubtaskEdit(subtask.id)}
+                            disabled={!editSubtaskTitle.trim()}
+                            className="h-7 px-2 text-xs"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCancelSubtaskEdit}
+                            className="h-7 px-2 text-xs"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <span 
+                          className={`text-sm flex-1 ${
+                            subtask.completed 
+                              ? 'line-through text-muted-foreground' 
+                              : 'text-foreground'
+                          }`}
                         >
-                          Save
+                          {subtask.title}
+                        </span>
+                      )}
+                    </div>
+                    {editingSubtask !== subtask.id && (
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditSubtask(subtask)}
+                          className="h-6 w-6 p-0"
+                          title="Edit subtask"
+                        >
+                          <Edit className="h-3 w-3" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={handleCancelSubtaskEdit}
-                          className="h-7 px-2 text-xs"
+                          onClick={() => handleDeleteSubtask(subtask.id)}
+                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                          title="Delete subtask"
                         >
-                          Cancel
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
-                    ) : (
-                      <span 
-                        className={`text-sm flex-1 ${
-                          subtask.completed 
-                            ? 'line-through text-muted-foreground' 
-                            : 'text-foreground'
-                        }`}
-                      >
-                        {subtask.title}
-                      </span>
                     )}
                   </div>
-                  {editingSubtask !== subtask.id && (
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditSubtask(subtask)}
-                        className="h-6 w-6 p-0"
-                        title="Edit subtask"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteSubtask(subtask.id)}
-                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                        title="Delete subtask"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                </ErrorBoundary>
               ))}
 
               {/* Show more/less button */}
@@ -532,5 +537,13 @@ export function TaskCard({
         </div>
       </div>
     </div>
+  );
+}
+
+export function TaskCard(props: TaskCardProps) {
+  return (
+    <ErrorBoundary>
+      <TaskCardContent {...props} />
+    </ErrorBoundary>
   );
 }

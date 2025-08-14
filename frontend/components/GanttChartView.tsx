@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { ErrorBoundary } from './ErrorBoundary';
 import backend from '~backend/client';
 import type { Task } from './TaskCardsView';
 
@@ -18,7 +19,7 @@ interface DragState {
   originalEndDate: Date | null;
 }
 
-export function GanttChartView() {
+function GanttChartContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -389,16 +390,18 @@ export function GanttChartView() {
         <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             {/* View Mode Select */}
-            <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="day">Day</SelectItem>
-                <SelectItem value="week">Week</SelectItem>
-                <SelectItem value="month">Month</SelectItem>
-              </SelectContent>
-            </Select>
+            <ErrorBoundary>
+              <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">Day</SelectItem>
+                  <SelectItem value="week">Week</SelectItem>
+                  <SelectItem value="month">Month</SelectItem>
+                </SelectContent>
+              </Select>
+            </ErrorBoundary>
 
             {/* Zoom Controls */}
             <div className="flex items-center gap-1">
@@ -455,60 +458,62 @@ export function GanttChartView() {
                   const isDraggingThis = dragState.isDragging && dragState.taskId === task.id;
                   
                   return (
-                    <div key={task.id} className={`grid hover:bg-accent/50 transition-colors ${isDraggingThis ? 'bg-accent/30' : ''}`} style={{ gridTemplateColumns: `300px repeat(${dateHeaders.length}, 1fr)` }}>
-                      {/* Task Info - Sticky Left Column */}
-                      <div className="p-3 border-r border-border bg-card sticky left-0 z-10">
-                        <div className="font-medium">{task.title}</div>
-                        <div className="text-sm text-muted-foreground capitalize">{task.category}</div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {task.progress}% complete
-                        </div>
-                      </div>
-                      
-                      {/* Timeline Grid */}
-                      <div className="relative" style={{ gridColumn: `2 / ${dateHeaders.length + 2}` }}>
-                        <div className={`grid h-16`} style={{ gridTemplateColumns: `repeat(${dateHeaders.length}, 1fr)` }}>
-                          {dateHeaders.map((_, index) => (
-                            <div key={index} className="border-r border-border last:border-r-0"></div>
-                          ))}
+                    <ErrorBoundary key={task.id}>
+                      <div className={`grid hover:bg-accent/50 transition-colors ${isDraggingThis ? 'bg-accent/30' : ''}`} style={{ gridTemplateColumns: `300px repeat(${dateHeaders.length}, 1fr)` }}>
+                        {/* Task Info - Sticky Left Column */}
+                        <div className="p-3 border-r border-border bg-card sticky left-0 z-10">
+                          <div className="font-medium">{task.title}</div>
+                          <div className="text-sm text-muted-foreground capitalize">{task.category}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {task.progress}% complete
+                          </div>
                         </div>
                         
-                        {/* Original Task Bar */}
-                        {barPosition && (
-                          <div
-                            className={`absolute top-1/2 transform -translate-y-1/2 h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm cursor-move select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity`}
-                            style={{
-                              left: barPosition.left,
-                              width: barPosition.width,
-                            }}
-                            onMouseDown={(e) => handleMouseDown(e, task)}
-                          >
-                            <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)}`}>
-                              <div className="w-full h-full bg-white/20 rounded-md flex items-center justify-center">
-                                <span className="truncate px-2">{task.title}</span>
+                        {/* Timeline Grid */}
+                        <div className="relative" style={{ gridColumn: `2 / ${dateHeaders.length + 2}` }}>
+                          <div className={`grid h-16`} style={{ gridTemplateColumns: `repeat(${dateHeaders.length}, 1fr)` }}>
+                            {dateHeaders.map((_, index) => (
+                              <div key={index} className="border-r border-border last:border-r-0"></div>
+                            ))}
+                          </div>
+                          
+                          {/* Original Task Bar */}
+                          {barPosition && (
+                            <div
+                              className={`absolute top-1/2 transform -translate-y-1/2 h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm cursor-move select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity`}
+                              style={{
+                                left: barPosition.left,
+                                width: barPosition.width,
+                              }}
+                              onMouseDown={(e) => handleMouseDown(e, task)}
+                            >
+                              <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)}`}>
+                                <div className="w-full h-full bg-white/20 rounded-md flex items-center justify-center">
+                                  <span className="truncate px-2">{task.title}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
-                        
-                        {/* Drag Preview */}
-                        {dragPreviewPosition && isDraggingThis && (
-                          <div
-                            className="absolute top-1/2 transform -translate-y-1/2 h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-lg border-2 border-primary z-20 pointer-events-none"
-                            style={{
-                              left: dragPreviewPosition.left,
-                              width: dragPreviewPosition.width,
-                            }}
-                          >
-                            <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)} opacity-90`}>
-                              <div className="w-full h-full bg-white/30 rounded-md flex items-center justify-center">
-                                <span className="truncate px-2">{task.title}</span>
+                          )}
+                          
+                          {/* Drag Preview */}
+                          {dragPreviewPosition && isDraggingThis && (
+                            <div
+                              className="absolute top-1/2 transform -translate-y-1/2 h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-lg border-2 border-primary z-20 pointer-events-none"
+                              style={{
+                                left: dragPreviewPosition.left,
+                                width: dragPreviewPosition.width,
+                              }}
+                            >
+                              <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)} opacity-90`}>
+                                <div className="w-full h-full bg-white/30 rounded-md flex items-center justify-center">
+                                  <span className="truncate px-2">{task.title}</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </ErrorBoundary>
                   );
                 })
               )}
@@ -539,5 +544,13 @@ export function GanttChartView() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function GanttChartView() {
+  return (
+    <ErrorBoundary>
+      <GanttChartContent />
+    </ErrorBoundary>
   );
 }

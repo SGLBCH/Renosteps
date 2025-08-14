@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { TaskCard } from './TaskCard';
 import { FilterChips } from './FilterChips';
 import { TaskDialog } from './TaskDialog';
+import { ErrorBoundary } from './ErrorBoundary';
+import { TaskCardErrorBoundary } from './TaskCardErrorBoundary';
 import { useToast } from '@/components/ui/use-toast';
 import backend from '~backend/client';
 
@@ -34,7 +36,7 @@ export interface Task {
 
 const categories = ['All', 'Kitchen', 'Bathroom', 'Living Room', 'Bedroom', 'Exterior', 'Other'];
 
-export function TaskCardsView() {
+function TaskCardsContent() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +135,9 @@ export function TaskCardsView() {
       <div className="h-full flex flex-col">
         <div className="flex justify-between items-center flex-shrink-0">
           <h2 className="text-2xl font-semibold">Tasks</h2>
-          <TaskDialog onTaskSaved={loadTasks} />
+          <ErrorBoundary>
+            <TaskDialog onTaskSaved={loadTasks} />
+          </ErrorBoundary>
         </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-muted-foreground">Loading tasks...</div>
@@ -147,7 +151,9 @@ export function TaskCardsView() {
       <div className="h-full flex flex-col">
         <div className="flex justify-between items-center flex-shrink-0">
           <h2 className="text-2xl font-semibold">Tasks</h2>
-          <TaskDialog onTaskSaved={loadTasks} />
+          <ErrorBoundary>
+            <TaskDialog onTaskSaved={loadTasks} />
+          </ErrorBoundary>
         </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -169,19 +175,23 @@ export function TaskCardsView() {
       {/* Header with Add Task button */}
       <div className="flex justify-between items-center flex-shrink-0 mb-6">
         <h2 className="text-2xl font-semibold">Tasks</h2>
-        <TaskDialog 
-          onTaskSaved={loadTasks}
-          onTaskCreated={addTaskOptimistically}
-        />
+        <ErrorBoundary>
+          <TaskDialog 
+            onTaskSaved={loadTasks}
+            onTaskCreated={addTaskOptimistically}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* Filter Chips */}
       <div className="flex-shrink-0 mb-6">
-        <FilterChips 
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-        />
+        <ErrorBoundary>
+          <FilterChips 
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* Task Cards Grid - Scrollable Area */}
@@ -194,28 +204,43 @@ export function TaskCardsView() {
                 : `No tasks found in the ${selectedCategory} category.`
               }
             </div>
-            <TaskDialog 
-              onTaskSaved={loadTasks}
-              onTaskCreated={addTaskOptimistically}
-            />
+            <ErrorBoundary>
+              <TaskDialog 
+                onTaskSaved={loadTasks}
+                onTaskCreated={addTaskOptimistically}
+              />
+            </ErrorBoundary>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-6">
             {filteredTasks.map((task) => (
-              <TaskCard 
+              <TaskCardErrorBoundary 
                 key={task.id} 
-                task={task} 
-                onTaskUpdated={updateTaskOptimistically}
-                onTaskDeleted={removeTaskOptimistically}
-                onSubtaskUpdated={updateSubtaskOptimistically}
-                onSubtaskAdded={addSubtaskOptimistically}
-                onSubtaskDeleted={removeSubtaskOptimistically}
-                onError={loadTasks}
-              />
+                taskTitle={task.title}
+                onRetry={loadTasks}
+              >
+                <TaskCard 
+                  task={task} 
+                  onTaskUpdated={updateTaskOptimistically}
+                  onTaskDeleted={removeTaskOptimistically}
+                  onSubtaskUpdated={updateSubtaskOptimistically}
+                  onSubtaskAdded={addSubtaskOptimistically}
+                  onSubtaskDeleted={removeSubtaskOptimistically}
+                  onError={loadTasks}
+                />
+              </TaskCardErrorBoundary>
             ))}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+export function TaskCardsView() {
+  return (
+    <ErrorBoundary>
+      <TaskCardsContent />
+    </ErrorBoundary>
   );
 }

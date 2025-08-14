@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ProjectOverview } from './ProjectOverview';
 import { BudgetCard } from './BudgetCard';
 import { ContractorsList } from './ContractorsList';
+import { ErrorBoundary } from './ErrorBoundary';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -36,9 +37,15 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
 
         {!collapsed && (
           <div className="space-y-6 animate-fade-in">
-            <ProjectOverview />
-            <BudgetCard />
-            <ContractorsList />
+            <ErrorBoundary>
+              <ProjectOverview />
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <BudgetCard />
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <ContractorsList />
+            </ErrorBoundary>
           </div>
         )}
       </div>

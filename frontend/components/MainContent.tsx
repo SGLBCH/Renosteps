@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskCardsView } from './TaskCardsView';
 import { GanttChartView } from './GanttChartView';
+import { ErrorBoundary } from './ErrorBoundary';
 
 export function MainContent() {
   return (
@@ -13,20 +14,22 @@ export function MainContent() {
 
       {/* Content */}
       <div className="flex-1 p-6 overflow-hidden">
-        <Tabs defaultValue="task-cards" className="h-full flex flex-col">
-          <TabsList className="grid w-fit grid-cols-2 flex-shrink-0">
-            <TabsTrigger value="task-cards">Task Cards</TabsTrigger>
-            <TabsTrigger value="gantt-chart">Gantt Chart</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="task-cards" className="mt-6 flex-1 overflow-hidden">
-            <TaskCardsView />
-          </TabsContent>
-          
-          <TabsContent value="gantt-chart" className="mt-6 flex-1 overflow-hidden">
-            <GanttChartView />
-          </TabsContent>
-        </Tabs>
+        <ErrorBoundary>
+          <Tabs defaultValue="task-cards" className="h-full flex flex-col">
+            <TabsList className="grid w-fit grid-cols-2 flex-shrink-0">
+              <TabsTrigger value="task-cards">Task Cards</TabsTrigger>
+              <TabsTrigger value="gantt-chart">Gantt Chart</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="task-cards" className="mt-6 flex-1 overflow-hidden">
+              <TaskCardsView />
+            </TabsContent>
+            
+            <TabsContent value="gantt-chart" className="mt-6 flex-1 overflow-hidden">
+              <GanttChartView />
+            </TabsContent>
+          </Tabs>
+        </ErrorBoundary>
       </div>
     </div>
   );
