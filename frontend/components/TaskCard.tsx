@@ -146,7 +146,7 @@ export function TaskCard({
       
       // Optimistically add the subtask
       const newSubtask: Subtask = {
-        id: response.subtask.id,
+        id: response.id,
         taskId: task.id,
         title: newSubtaskTitle.trim(),
         completed: false,
