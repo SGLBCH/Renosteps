@@ -38,15 +38,18 @@ export function TaskCardsView() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadTasks = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await backend.tasks.list();
       setTasks(response.tasks);
     } catch (error) {
       console.error('Error loading tasks:', error);
+      setError('Failed to load tasks');
       toast({
         title: "Error",
         description: "Failed to load tasks. Please try again.",
@@ -76,6 +79,28 @@ export function TaskCardsView() {
         </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-muted-foreground">Loading tasks...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="flex justify-between items-center flex-shrink-0">
+          <h2 className="text-2xl font-semibold">Tasks</h2>
+          <TaskDialog onTaskSaved={loadTasks} />
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-muted-foreground mb-4">{error}</div>
+            <button 
+              onClick={loadTasks}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
