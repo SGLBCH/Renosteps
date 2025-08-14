@@ -1,0 +1,1 @@
+{"id": "renovation-task-manager-bnki", "lang": "typescript"}
