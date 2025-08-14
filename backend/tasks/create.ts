@@ -1,5 +1,6 @@
 import { api, APIError } from "encore.dev/api";
 import { tasksDB } from "./db";
+import { generateId } from "./utils";
 import type { CreateTaskRequest, Task } from "./types";
 
 // Creates a new task.
@@ -36,7 +37,3 @@ export const create = api<CreateTaskRequest, Task>(
     return task;
   }
 );
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}

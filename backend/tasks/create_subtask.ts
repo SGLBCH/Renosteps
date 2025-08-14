@@ -1,5 +1,6 @@
 import { api, APIError } from "encore.dev/api";
 import { tasksDB } from "./db";
+import { generateId } from "./utils";
 import type { CreateSubtaskRequest, Subtask } from "./types";
 
 // Creates a new subtask for a task.
@@ -41,7 +42,3 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
     return subtask;
   }
 );
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
