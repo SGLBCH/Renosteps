@@ -286,7 +286,7 @@ export function Budget() {
   if (!currentProject) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Budget Management</h1>
+        <h2 className="text-xl md:text-2xl font-semibold">Budget</h2>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted-foreground">No project selected</div>
         </div>
@@ -298,7 +298,7 @@ export function Budget() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Budget Management</h1>
+          <h2 className="text-xl md:text-2xl font-semibold">Budget</h2>
           <p className="text-sm text-muted-foreground">{currentProject.name}</p>
         </div>
         <div className="animate-pulse">
@@ -317,7 +317,7 @@ export function Budget() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Budget Management</h1>
+          <h2 className="text-xl md:text-2xl font-semibold">Budget</h2>
           <p className="text-sm text-muted-foreground">{currentProject.name}</p>
         </div>
         <Alert variant="destructive">
@@ -347,7 +347,7 @@ export function Budget() {
       {/* Mobile Header */}
       <div className="flex justify-between items-start md:items-center">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Budget Management</h1>
+          <h2 className="text-xl md:text-2xl font-semibold">Budget</h2>
           <p className="text-sm text-muted-foreground">{currentProject.name}</p>
         </div>
         
