@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, DollarSign, Calendar, Tag, Trash2, Edit } from 'lucide-react';
+import { Plus, DollarSign, Calendar, Tag, Trash2, Edit, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { useProject } from '../contexts/ProjectContext';
 import { useProjectBudget } from '../hooks/useProjectBudget';
@@ -20,6 +21,18 @@ export function Budget() {
   const [expensesLoading, setExpensesLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<BudgetExpense | null>(null);
+  const [operationLoading, setOperationLoading] = useState<{
+    create: boolean;
+    update: boolean;
+    delete: string | null;
+    budgetUpdate: boolean;
+  }>({
+    create: false,
+    update: false,
+    delete: null,
+    budgetUpdate: false,
+  });
+  const [apiError, setApiError] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Form state
@@ -40,21 +53,15 @@ export function Budget() {
     }
   }, [budgetSummary]);
 
-  const fetchExpenses = async () => {
-    try {
-      setExpensesLoading(true);
-      // Expenses are now loaded via the budget summary
-      // This function is kept for compatibility but will be updated by the effect above
-    } catch (err) {
-      console.error('Failed to fetch expenses:', err);
-      toast({
-        title: "Error",
-        description: "Failed to load expenses",
-        variant: "destructive",
-      });
-    } finally {
-      setExpensesLoading(false);
-    }
+  const resetForm = () => {
+    setFormData({
+      amount: '',
+      description: '',
+      category: '',
+      date: new Date().toISOString().split('T')[0]
+    });
+    setEditingExpense(null);
+    setApiError(null);
   };
 
   const handleSubmitExpense = async (e: React.FormEvent) => {
@@ -68,49 +75,85 @@ export function Budget() {
       });
       return;
     }
-    
-    try {
-      const expenseData = {
-        amount: parseFloat(formData.amount),
-        description: formData.description,
-        category: formData.category,
-        date: new Date(formData.date),
-        projectId: currentProject.id
-      };
 
+    if (!formData.amount || !formData.description || !formData.category) {
+      setApiError("Please fill in all required fields");
+      return;
+    }
+
+    const amount = parseFloat(formData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      setApiError("Please enter a valid amount greater than 0");
+      return;
+    }
+
+    try {
+      setApiError(null);
+      
       if (editingExpense) {
-        // Update existing expense - we'll need to add this endpoint
+        setOperationLoading(prev => ({ ...prev, update: true }));
+        
+        await backend.budget.updateExpense({
+          id: editingExpense.id,
+          amount,
+          description: formData.description,
+          category: formData.category,
+          date: new Date(formData.date),
+          projectId: currentProject.id
+        });
+        
         toast({
           title: "Success",
           description: "Expense updated successfully",
         });
       } else {
-        await backend.budget.createExpense(expenseData);
+        setOperationLoading(prev => ({ ...prev, create: true }));
+        
+        await backend.budget.createExpense({
+          amount,
+          description: formData.description,
+          category: formData.category,
+          date: new Date(formData.date),
+          projectId: currentProject.id
+        });
+        
         toast({
           title: "Success",
           description: "Expense added successfully",
         });
       }
 
-      // Reset form
-      setFormData({
-        amount: '',
-        description: '',
-        category: '',
-        date: new Date().toISOString().split('T')[0]
-      });
-      setEditingExpense(null);
+      resetForm();
       setIsDialogOpen(false);
-      
-      // Refresh data
       refreshBudget();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save expense:', err);
+      
+      let errorMessage = "Failed to save expense";
+      if (err?.message) {
+        if (err.message.includes('timeout')) {
+          errorMessage = "Request timed out. Please try again.";
+        } else if (err.message.includes('network')) {
+          errorMessage = "Network error. Please check your connection.";
+        } else if (err.message.includes('validation')) {
+          errorMessage = "Invalid data provided. Please check your input.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      setApiError(errorMessage);
       toast({
         title: "Error",
-        description: "Failed to save expense",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setOperationLoading(prev => ({ 
+        ...prev, 
+        create: false, 
+        update: false 
+      }));
     }
   };
 
@@ -124,51 +167,93 @@ export function Budget() {
       return;
     }
 
-    try {
-      const amount = parseFloat(budgetAmount);
-      if (isNaN(amount) || amount < 0) {
-        toast({
-          title: "Error",
-          description: "Please enter a valid budget amount",
-          variant: "destructive",
-        });
-        return;
-      }
+    const amount = parseFloat(budgetAmount);
+    if (isNaN(amount) || amount < 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid budget amount",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    try {
+      setOperationLoading(prev => ({ ...prev, budgetUpdate: true }));
+      
       await backend.budget.updateBudget({ 
         totalBudget: amount,
         projectId: currentProject.id
       });
+      
       toast({
         title: "Success",
         description: "Budget updated successfully",
       });
+      
       refreshBudget();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to update budget:', err);
+      
+      let errorMessage = "Failed to update budget";
+      if (err?.message) {
+        if (err.message.includes('timeout')) {
+          errorMessage = "Request timed out. Please try again.";
+        } else if (err.message.includes('network')) {
+          errorMessage = "Network error. Please check your connection.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to update budget",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setOperationLoading(prev => ({ ...prev, budgetUpdate: false }));
     }
   };
 
   const handleDeleteExpense = async (expenseId: number) => {
+    if (!confirm('Are you sure you want to delete this expense?')) {
+      return;
+    }
+
     try {
+      setOperationLoading(prev => ({ ...prev, delete: expenseId.toString() }));
+      
       await backend.budget.deleteExpense({ id: expenseId });
+      
       toast({
         title: "Success",
         description: "Expense deleted successfully",
       });
+      
       refreshBudget();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to delete expense:', err);
+      
+      let errorMessage = "Failed to delete expense";
+      if (err?.message) {
+        if (err.message.includes('timeout')) {
+          errorMessage = "Request timed out. Please try again.";
+        } else if (err.message.includes('network')) {
+          errorMessage = "Network error. Please check your connection.";
+        } else if (err.message.includes('not found')) {
+          errorMessage = "Expense not found. It may have already been deleted.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to delete expense",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setOperationLoading(prev => ({ ...prev, delete: null }));
     }
   };
 
@@ -178,20 +263,22 @@ export function Budget() {
       amount: expense.amount.toString(),
       description: expense.description,
       category: expense.category,
-      date: expense.date.toISOString().split('T')[0]
+      date: new Date(expense.date).toISOString().split('T')[0]
     });
+    setApiError(null);
     setIsDialogOpen(true);
   };
 
   const openCreateDialog = () => {
-    setEditingExpense(null);
-    setFormData({
-      amount: '',
-      description: '',
-      category: '',
-      date: new Date().toISOString().split('T')[0]
-    });
+    resetForm();
     setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      resetForm();
+    }
+    setIsDialogOpen(open);
   };
 
   if (!currentProject) {
@@ -224,8 +311,33 @@ export function Budget() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Budget Management</h1>
+          <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-4"
+              onClick={refreshBudget}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   const totalBudget = budgetSummary?.totalBudget || 0;
-  const totalExpenses = budgetSummary?.totalExpenses || 0;
+  const totalExpenses = budgetSummary?.totalSpent || 0;
   const remaining = totalBudget - totalExpenses;
 
   return (
@@ -235,7 +347,7 @@ export function Budget() {
           <h1 className="text-3xl font-bold">Budget Management</h1>
           <p className="text-sm text-muted-foreground">{currentProject.name}</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
             <Button onClick={openCreateDialog}>
               <Plus className="h-4 w-4 mr-2" />
@@ -248,34 +360,46 @@ export function Budget() {
                 {editingExpense ? 'Edit Expense' : 'Add New Expense'}
               </DialogTitle>
             </DialogHeader>
+            
+            {apiError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{apiError}</AlertDescription>
+              </Alert>
+            )}
+            
             <form onSubmit={handleSubmitExpense} className="space-y-4">
               <div>
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">Amount *</Label>
                 <Input
                   id="amount"
                   type="number"
                   step="0.01"
+                  min="0"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   placeholder="0.00"
                   required
+                  disabled={operationLoading.create || operationLoading.update}
                 />
               </div>
               <div>
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">Description *</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Expense description"
                   required
+                  disabled={operationLoading.create || operationLoading.update}
                 />
               </div>
               <div>
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category">Category *</Label>
                 <Select
                   value={formData.category}
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  disabled={operationLoading.create || operationLoading.update}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -286,26 +410,46 @@ export function Budget() {
                     <SelectItem value="living-room">Living Room</SelectItem>
                     <SelectItem value="bedroom">Bedroom</SelectItem>
                     <SelectItem value="exterior">Exterior</SelectItem>
+                    <SelectItem value="materials">Materials</SelectItem>
+                    <SelectItem value="labor">Labor</SelectItem>
+                    <SelectItem value="equipment">Equipment</SelectItem>
+                    <SelectItem value="permits">Permits</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="date">Date</Label>
+                <Label htmlFor="date">Date *</Label>
                 <Input
                   id="date"
                   type="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   required
+                  disabled={operationLoading.create || operationLoading.update}
                 />
               </div>
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => handleDialogClose(false)}
+                  disabled={operationLoading.create || operationLoading.update}
+                >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingExpense ? 'Update' : 'Add'} Expense
+                <Button 
+                  type="submit"
+                  disabled={operationLoading.create || operationLoading.update || !formData.amount || !formData.description || !formData.category}
+                >
+                  {operationLoading.create || operationLoading.update ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                      {editingExpense ? 'Updating...' : 'Adding...'}
+                    </>
+                  ) : (
+                    editingExpense ? 'Update Expense' : 'Add Expense'
+                  )}
                 </Button>
               </div>
             </form>
@@ -327,13 +471,26 @@ export function Budget() {
               <Input
                 type="number"
                 step="0.01"
+                min="0"
                 value={budgetAmount}
                 onChange={(e) => setBudgetAmount(e.target.value)}
                 placeholder="0.00"
                 className="text-2xl font-bold"
+                disabled={operationLoading.budgetUpdate}
               />
-              <Button size="sm" onClick={handleUpdateBudget}>
-                Update
+              <Button 
+                size="sm" 
+                onClick={handleUpdateBudget}
+                disabled={operationLoading.budgetUpdate || !budgetAmount || parseFloat(budgetAmount) < 0}
+              >
+                {operationLoading.budgetUpdate ? (
+                  <>
+                    <div className="mr-1 h-3 w-3 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update'
+                )}
               </Button>
             </div>
           </CardContent>
@@ -434,6 +591,8 @@ export function Budget() {
                       variant="ghost"
                       size="icon"
                       onClick={() => openEditDialog(expense)}
+                      disabled={operationLoading.delete === expense.id.toString()}
+                      title="Edit expense"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -441,8 +600,14 @@ export function Budget() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDeleteExpense(expense.id)}
+                      disabled={operationLoading.delete === expense.id.toString()}
+                      title="Delete expense"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {operationLoading.delete === expense.id.toString() ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>

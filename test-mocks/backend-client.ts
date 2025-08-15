@@ -13,4 +13,22 @@ export default {
     updateSubtask: vi.fn(),
     deleteSubtask: vi.fn(),
   },
+  budget: {
+    getSummary: vi.fn(),
+    createExpense: vi.fn(),
+    updateExpense: vi.fn(),
+    deleteExpense: vi.fn(),
+    updateBudget: vi.fn(),
+  },
+  projects: {
+    list: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  contractors: {
+    list: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteContractor: vi.fn(),
+  },
 };

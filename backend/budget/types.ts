@@ -25,6 +25,15 @@ export interface CreateExpenseRequest {
   projectId?: string;
 }
 
+export interface UpdateExpenseRequest {
+  id: number;
+  category?: string;
+  description?: string;
+  amount?: number;
+  date?: Date;
+  projectId?: string;
+}
+
 export interface UpdateBudgetRequest {
   totalBudget: number;
   projectId?: string;
