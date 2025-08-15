@@ -3,18 +3,18 @@ import { secret } from "encore.dev/config";
 // JWT secret for signing tokens
 const jwtSecret = secret("JWTSecret");
 
-// Hash a password using bcrypt
+// Hash a password using bcryptjs
 export async function hashPassword(password: string): Promise<string> {
   try {
-    // Import bcrypt dynamically to avoid issues with bundling
-    const { default: bcrypt } = await import('bcrypt');
+    // Import bcryptjs dynamically to avoid issues with bundling
+    const { default: bcryptjs } = await import('bcryptjs');
     const saltRounds = 12;
     
     console.log('Hashing password with salt rounds:', saltRounds);
-    const hash = await bcrypt.hash(password, saltRounds);
+    const hash = await bcryptjs.hash(password, saltRounds);
     
     if (!hash) {
-      throw new Error('Bcrypt returned empty hash');
+      throw new Error('Bcryptjs returned empty hash');
     }
     
     console.log('Password hashed successfully');
@@ -33,10 +33,10 @@ export async function hashPassword(password: string): Promise<string> {
 // Verify a password against its hash
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   try {
-    const { default: bcrypt } = await import('bcrypt');
+    const { default: bcryptjs } = await import('bcryptjs');
     
     console.log('Verifying password against hash');
-    const isValid = await bcrypt.compare(password, hash);
+    const isValid = await bcryptjs.compare(password, hash);
     
     console.log('Password verification result:', isValid);
     return isValid;
