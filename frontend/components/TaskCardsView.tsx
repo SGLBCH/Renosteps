@@ -100,7 +100,6 @@ function TaskCardsContent() {
   }, [setTasks]);
 
   const addTaskOptimistically = useCallback((task: Task) => {
-    // Only add the task if it belongs to the current project
     if (currentProject && task.projectId === String(currentProject.id)) {
       setTasks(prevTasks => [task, ...prevTasks]);
     }
@@ -111,7 +110,6 @@ function TaskCardsContent() {
   }, [loadTasks]);
 
   const handleTaskCreated = useCallback((newTask: Task) => {
-    // Refresh the task list to ensure we have the latest data
     loadTasks();
   }, [loadTasks]);
 
@@ -137,8 +135,11 @@ function TaskCardsContent() {
   if (loading && retryCount === 0) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex justify-between items-center flex-shrink-0">
-          <h2 className="text-2xl font-semibold">Tasks</h2>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 flex-shrink-0">
+          <div>
+            <h2 className="text-2xl font-semibold">Tasks</h2>
+            <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+          </div>
           <ErrorBoundary>
             <TaskDialog onTaskCreated={handleTaskCreated} />
           </ErrorBoundary>
@@ -153,8 +154,11 @@ function TaskCardsContent() {
   if (error && retryCount >= 2) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex justify-between items-center flex-shrink-0">
-          <h2 className="text-2xl font-semibold">Tasks</h2>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 flex-shrink-0">
+          <div>
+            <h2 className="text-2xl font-semibold">Tasks</h2>
+            <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+          </div>
           <ErrorBoundary>
             <TaskDialog onTaskCreated={handleTaskCreated} />
           </ErrorBoundary>
@@ -177,7 +181,7 @@ function TaskCardsContent() {
   return (
     <div className="h-full flex flex-col">
       {/* Header with Add Task button */}
-      <div className="flex justify-between items-center flex-shrink-0 mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 flex-shrink-0 mb-6">
         <div>
           <h2 className="text-2xl font-semibold">Tasks</h2>
           <p className="text-sm text-muted-foreground">{currentProject.name}</p>
@@ -201,7 +205,7 @@ function TaskCardsContent() {
       {/* Task Cards Grid - Scrollable Area */}
       <div className="flex-1 overflow-y-auto">
         {filteredTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div className="text-muted-foreground mb-4">
               {selectedCategory === 'All' 
                 ? `No tasks found for ${currentProject.name}. Create your first task to get started!` 
@@ -213,7 +217,7 @@ function TaskCardsContent() {
             </ErrorBoundary>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6 pb-6">
             {filteredTasks.map((task) => (
               <TaskCardErrorBoundary 
                 key={task.id} 

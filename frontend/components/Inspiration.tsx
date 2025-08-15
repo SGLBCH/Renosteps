@@ -22,14 +22,13 @@ export function Inspiration() {
   };
 
   const handleUpdate = () => {
-    // Trigger a refetch when an inspiration is updated/deleted
     refetch();
   };
 
   if (!currentProject) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Inspiration</h2>
+        <h2 className="text-xl md:text-2xl font-semibold">Inspiration</h2>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted-foreground">No project selected</div>
         </div>
@@ -40,9 +39,9 @@ export function Inspiration() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold">Inspiration</h2>
+            <h2 className="text-xl md:text-2xl font-semibold">Inspiration</h2>
             <p className="text-sm text-muted-foreground">{currentProject.name}</p>
           </div>
           <CreateInspirationDialog projectId={currentProject.id} />
@@ -50,14 +49,14 @@ export function Inspiration() {
         
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="flex items-center justify-between">
+          <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <span>Failed to load inspirations. Please try again.</span>
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="ml-4"
+              className="w-full sm:w-auto"
             >
               {isRefreshing ? (
                 <>
@@ -79,9 +78,9 @@ export function Inspiration() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold">Inspiration</h2>
+          <h2 className="text-xl md:text-2xl font-semibold">Inspiration</h2>
           <p className="text-sm text-muted-foreground">{currentProject.name}</p>
         </div>
         <div className="flex items-center space-x-2">
@@ -106,7 +105,7 @@ export function Inspiration() {
           </div>
         </div>
       ) : inspirations && inspirations.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
           {inspirations.map((inspiration) => (
             <InspirationCard 
               key={inspiration.id} 

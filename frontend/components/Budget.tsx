@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, DollarSign, Calendar, Tag, Trash2, Edit, AlertCircle } from 'lucide-react';
+import { Plus, DollarSign, Calendar, Tag, Trash2, Edit, AlertCircle, Menu, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/use-toast';
 import { useProject } from '../contexts/ProjectContext';
 import { useProjectBudget } from '../hooks/useProjectBudget';
@@ -20,6 +21,7 @@ export function Budget() {
   const [expenses, setExpenses] = useState<BudgetExpense[]>([]);
   const [expensesLoading, setExpensesLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<BudgetExpense | null>(null);
   const [operationLoading, setOperationLoading] = useState<{
     create: boolean;
@@ -99,7 +101,7 @@ export function Budget() {
           description: formData.description,
           category: formData.category,
           date: new Date(formData.date),
-          projectId: String(currentProject.id) // Convert to string
+          projectId: String(currentProject.id)
         });
         
         toast({
@@ -114,7 +116,7 @@ export function Budget() {
           description: formData.description,
           category: formData.category,
           date: new Date(formData.date),
-          projectId: String(currentProject.id) // Convert to string
+          projectId: String(currentProject.id)
         });
         
         toast({
@@ -182,7 +184,7 @@ export function Budget() {
       
       await backend.budget.updateBudget({ 
         totalBudget: amount,
-        projectId: String(currentProject.id) // Convert to string
+        projectId: String(currentProject.id)
       });
       
       toast({
@@ -342,129 +344,289 @@ export function Budget() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Mobile Header */}
+      <div className="flex justify-between items-start md:items-center">
         <div>
-          <h1 className="text-3xl font-bold">Budget Management</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Budget Management</h1>
           <p className="text-sm text-muted-foreground">{currentProject.name}</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Expense
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingExpense ? 'Edit Expense' : 'Add New Expense'}
-              </DialogTitle>
-              <DialogDescription>
-                {editingExpense 
-                  ? 'Update the expense details below.' 
-                  : 'Fill in the details to add a new expense to your budget.'
-                }
-              </DialogDescription>
-            </DialogHeader>
-            
-            {apiError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{apiError}</AlertDescription>
-              </Alert>
-            )}
-            
-            <form onSubmit={handleSubmitExpense} className="space-y-4">
-              <div>
-                <Label htmlFor="amount">Amount *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  placeholder="0.00"
-                  required
-                  disabled={operationLoading.create || operationLoading.update}
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Expense description"
-                  required
-                  disabled={operationLoading.create || operationLoading.update}
-                />
-              </div>
-              <div>
-                <Label htmlFor="category">Category *</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  disabled={operationLoading.create || operationLoading.update}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="kitchen">Kitchen</SelectItem>
-                    <SelectItem value="bathroom">Bathroom</SelectItem>
-                    <SelectItem value="living-room">Living Room</SelectItem>
-                    <SelectItem value="bedroom">Bedroom</SelectItem>
-                    <SelectItem value="exterior">Exterior</SelectItem>
-                    <SelectItem value="materials">Materials</SelectItem>
-                    <SelectItem value="labor">Labor</SelectItem>
-                    <SelectItem value="equipment">Equipment</SelectItem>
-                    <SelectItem value="permits">Permits</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="date">Date *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  required
-                  disabled={operationLoading.create || operationLoading.update}
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => handleDialogClose(false)}
-                  disabled={operationLoading.create || operationLoading.update}
-                >
-                  Cancel
+        
+        {/* Mobile Menu Button */}
+        <div className="md:hidden">
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Menu className="h-4 w-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-80">
+              <div className="space-y-4 mt-6">
+                <Button onClick={openCreateDialog} className="w-full">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Expense
                 </Button>
-                <Button 
-                  type="submit"
-                  disabled={operationLoading.create || operationLoading.update || !formData.amount || !formData.description || !formData.category}
-                >
-                  {operationLoading.create || operationLoading.update ? (
-                    <>
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                      {editingExpense ? 'Updating...' : 'Adding...'}
-                    </>
-                  ) : (
-                    editingExpense ? 'Update Expense' : 'Add Expense'
-                  )}
-                </Button>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="mobile-budget">Total Budget</Label>
+                  <div className="flex space-x-2">
+                    <Input
+                      id="mobile-budget"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={budgetAmount}
+                      onChange={(e) => setBudgetAmount(e.target.value)}
+                      placeholder="0.00"
+                      disabled={operationLoading.budgetUpdate}
+                    />
+                    <Button 
+                      size="sm" 
+                      onClick={handleUpdateBudget}
+                      disabled={operationLoading.budgetUpdate || !budgetAmount || parseFloat(budgetAmount) < 0}
+                    >
+                      {operationLoading.budgetUpdate ? 'Updating...' : 'Update'}
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        {/* Desktop Add Button */}
+        <div className="hidden md:block">
+          <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreateDialog}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingExpense ? 'Edit Expense' : 'Add New Expense'}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingExpense 
+                    ? 'Update the expense details below.' 
+                    : 'Fill in the details to add a new expense to your budget.'
+                  }
+                </DialogDescription>
+              </DialogHeader>
+              
+              {apiError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{apiError}</AlertDescription>
+                </Alert>
+              )}
+              
+              <form onSubmit={handleSubmitExpense} className="space-y-4">
+                <div>
+                  <Label htmlFor="amount">Amount *</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    placeholder="0.00"
+                    required
+                    disabled={operationLoading.create || operationLoading.update}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description *</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Expense description"
+                    required
+                    disabled={operationLoading.create || operationLoading.update}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="category">Category *</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    disabled={operationLoading.create || operationLoading.update}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="kitchen">Kitchen</SelectItem>
+                      <SelectItem value="bathroom">Bathroom</SelectItem>
+                      <SelectItem value="living-room">Living Room</SelectItem>
+                      <SelectItem value="bedroom">Bedroom</SelectItem>
+                      <SelectItem value="exterior">Exterior</SelectItem>
+                      <SelectItem value="materials">Materials</SelectItem>
+                      <SelectItem value="labor">Labor</SelectItem>
+                      <SelectItem value="equipment">Equipment</SelectItem>
+                      <SelectItem value="permits">Permits</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="date">Date *</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    required
+                    disabled={operationLoading.create || operationLoading.update}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => handleDialogClose(false)}
+                    disabled={operationLoading.create || operationLoading.update}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit"
+                    disabled={operationLoading.create || operationLoading.update || !formData.amount || !formData.description || !formData.category}
+                  >
+                    {operationLoading.create || operationLoading.update ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                        {editingExpense ? 'Updating...' : 'Adding...'}
+                      </>
+                    ) : (
+                      editingExpense ? 'Update Expense' : 'Add Expense'
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
+      {/* Mobile Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingExpense ? 'Edit Expense' : 'Add New Expense'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingExpense 
+                ? 'Update the expense details below.' 
+                : 'Fill in the details to add a new expense to your budget.'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {apiError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{apiError}</AlertDescription>
+            </Alert>
+          )}
+          
+          <form onSubmit={handleSubmitExpense} className="space-y-4">
+            <div>
+              <Label htmlFor="amount">Amount *</Label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                placeholder="0.00"
+                required
+                disabled={operationLoading.create || operationLoading.update}
+              />
+            </div>
+            <div>
+              <Label htmlFor="description">Description *</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Expense description"
+                required
+                disabled={operationLoading.create || operationLoading.update}
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label htmlFor="category">Category *</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => setFormData({ ...formData, category: value })}
+                disabled={operationLoading.create || operationLoading.update}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kitchen">Kitchen</SelectItem>
+                  <SelectItem value="bathroom">Bathroom</SelectItem>
+                  <SelectItem value="living-room">Living Room</SelectItem>
+                  <SelectItem value="bedroom">Bedroom</SelectItem>
+                  <SelectItem value="exterior">Exterior</SelectItem>
+                  <SelectItem value="materials">Materials</SelectItem>
+                  <SelectItem value="labor">Labor</SelectItem>
+                  <SelectItem value="equipment">Equipment</SelectItem>
+                  <SelectItem value="permits">Permits</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="date">Date *</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                required
+                disabled={operationLoading.create || operationLoading.update}
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => handleDialogClose(false)}
+                disabled={operationLoading.create || operationLoading.update}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit"
+                disabled={operationLoading.create || operationLoading.update || !formData.amount || !formData.description || !formData.category}
+                className="w-full sm:w-auto"
+              >
+                {operationLoading.create || operationLoading.update ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                    {editingExpense ? 'Updating...' : 'Adding...'}
+                  </>
+                ) : (
+                  editingExpense ? 'Update Expense' : 'Add Expense'
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Budget Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -473,7 +635,7 @@ export function Budget() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-2">
+            <div className="hidden md:flex items-center space-x-2">
               <Input
                 type="number"
                 step="0.01"
@@ -481,7 +643,7 @@ export function Budget() {
                 value={budgetAmount}
                 onChange={(e) => setBudgetAmount(e.target.value)}
                 placeholder="0.00"
-                className="text-2xl font-bold"
+                className="text-xl md:text-2xl font-bold"
                 disabled={operationLoading.budgetUpdate}
               />
               <Button 
@@ -499,6 +661,9 @@ export function Budget() {
                 )}
               </Button>
             </div>
+            <div className="md:hidden">
+              <div className="text-2xl font-bold">${totalBudget.toLocaleString()}</div>
+            </div>
           </CardContent>
         </Card>
 
@@ -507,7 +672,7 @@ export function Budget() {
             <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${totalExpenses.toLocaleString()}</div>
+            <div className="text-xl md:text-2xl font-bold">${totalExpenses.toLocaleString()}</div>
           </CardContent>
         </Card>
 
@@ -516,7 +681,7 @@ export function Budget() {
             <CardTitle className="text-sm font-medium">Remaining</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-xl md:text-2xl font-bold ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               ${Math.abs(remaining).toLocaleString()}
             </div>
           </CardContent>
@@ -527,7 +692,7 @@ export function Budget() {
             <CardTitle className="text-sm font-medium">Budget Used</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-xl md:text-2xl font-bold">
               {totalBudget > 0 ? ((totalExpenses / totalBudget) * 100).toFixed(1) : 0}%
             </div>
             <div className="w-full bg-muted rounded-full h-2 mt-2">
@@ -574,48 +739,54 @@ export function Budget() {
                 {expenses.map((expense) => (
                   <div
                     key={expense.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors space-y-2 sm:space-y-0"
                   >
-                    <div className="flex items-center space-x-4">
-                      <div className="p-2 bg-primary/10 rounded-lg">
+                    <div className="flex items-start sm:items-center space-x-4 flex-1">
+                      <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
                         <Tag className="h-4 w-4 text-primary" />
                       </div>
-                      <div>
-                        <div className="font-medium">{expense.description}</div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{expense.description}</div>
+                        <div className="text-sm text-muted-foreground flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                           <span className="capitalize">{expense.category.replace('-', ' ')}</span>
-                          <span>•</span>
-                          <Calendar className="h-3 w-3" />
-                          {new Date(expense.date).toLocaleDateString()}
+                          <span className="hidden sm:inline">•</span>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(expense.date).toLocaleDateString()}
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center justify-between sm:justify-end space-x-2">
                       <div className="text-lg font-semibold">
                         ${expense.amount.toLocaleString()}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(expense)}
-                        disabled={operationLoading.delete === expense.id.toString()}
-                        title="Edit expense"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteExpense(expense.id)}
-                        disabled={operationLoading.delete === expense.id.toString()}
-                        title="Delete expense"
-                      >
-                        {operationLoading.delete === expense.id.toString() ? (
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
+                      <div className="flex items-center space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(expense)}
+                          disabled={operationLoading.delete === expense.id.toString()}
+                          title="Edit expense"
+                          className="h-8 w-8"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteExpense(expense.id)}
+                          disabled={operationLoading.delete === expense.id.toString()}
+                          title="Delete expense"
+                          className="h-8 w-8"
+                        >
+                          {operationLoading.delete === expense.id.toString() ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}

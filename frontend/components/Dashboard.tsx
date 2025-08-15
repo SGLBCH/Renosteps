@@ -33,7 +33,7 @@ function DashboardContent() {
   if (!currentProject) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Dashboard</h2>
+        <h2 className="text-xl md:text-2xl font-semibold">Dashboard</h2>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted-foreground">No project selected</div>
         </div>
@@ -46,7 +46,7 @@ function DashboardContent() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-semibold">Dashboard</h2>
+          <h2 className="text-xl md:text-2xl font-semibold">Dashboard</h2>
           <p className="text-sm text-muted-foreground">{currentProject.name}</p>
         </div>
         <div className="flex items-center justify-center h-64">
@@ -59,12 +59,12 @@ function DashboardContent() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Dashboard</h2>
+        <h2 className="text-xl md:text-2xl font-semibold">Dashboard</h2>
         <p className="text-sm text-muted-foreground">{currentProject.name}</p>
       </div>
       
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Project Progress */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -74,12 +74,12 @@ function DashboardContent() {
           <CardContent>
             {tasksError ? (
               <div className="text-sm text-muted-foreground">
-                <div className="text-2xl font-bold">--</div>
+                <div className="text-xl md:text-2xl font-bold">--</div>
                 <p className="text-xs text-muted-foreground">Tasks unavailable</p>
               </div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{projectStats.progress}%</div>
+                <div className="text-xl md:text-2xl font-bold">{projectStats.progress}%</div>
                 <p className="text-xs text-muted-foreground">
                   {projectStats.completedTasks} of {projectStats.totalTasks} tasks completed
                 </p>
@@ -98,12 +98,12 @@ function DashboardContent() {
           <CardContent>
             {budgetError ? (
               <div className="text-sm text-muted-foreground">
-                <div className="text-2xl font-bold">--</div>
+                <div className="text-xl md:text-2xl font-bold">--</div>
                 <p className="text-xs text-muted-foreground">Budget unavailable</p>
               </div>
             ) : (
               <>
-                <div className={`text-2xl font-bold ${isOverBudget ? 'text-destructive' : ''}`}>
+                <div className={`text-xl md:text-2xl font-bold ${isOverBudget ? 'text-destructive' : ''}`}>
                   {budgetProgress}%
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -132,12 +132,12 @@ function DashboardContent() {
           <CardContent>
             {tasksError ? (
               <div className="text-sm text-muted-foreground">
-                <div className="text-2xl font-bold">--</div>
+                <div className="text-xl md:text-2xl font-bold">--</div>
                 <p className="text-xs text-muted-foreground">Tasks unavailable</p>
               </div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{projectStats.inProgressTasks}</div>
+                <div className="text-xl md:text-2xl font-bold">{projectStats.inProgressTasks}</div>
                 <p className="text-xs text-muted-foreground">
                   {projectStats.notStartedTasks} not started
                 </p>
@@ -199,7 +199,7 @@ function DashboardContent() {
       </div>
 
       {/* Detailed Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Budget Breakdown */}
         <Card>
           <CardHeader>
@@ -224,20 +224,20 @@ function DashboardContent() {
             ) : (
               <>
                 {/* Summary */}
-                <div className="grid grid-cols-3 gap-4 p-4 bg-secondary rounded-lg">
+                <div className="grid grid-cols-3 gap-2 md:gap-4 p-3 md:p-4 bg-secondary rounded-lg">
                   <div className="text-center">
-                    <div className="text-sm text-muted-foreground">Total</div>
-                    <div className="font-semibold">{budgetSummary ? formatCurrency(budgetSummary.totalBudget) : '$0'}</div>
+                    <div className="text-xs md:text-sm text-muted-foreground">Total</div>
+                    <div className="font-semibold text-sm md:text-base">{budgetSummary ? formatCurrency(budgetSummary.totalBudget) : '$0'}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm text-muted-foreground">Spent</div>
-                    <div className={`font-semibold ${isOverBudget ? 'text-destructive' : 'text-red-600'}`}>
+                    <div className="text-xs md:text-sm text-muted-foreground">Spent</div>
+                    <div className={`font-semibold text-sm md:text-base ${isOverBudget ? 'text-destructive' : 'text-red-600'}`}>
                       {budgetSummary ? formatCurrency(budgetSummary.totalExpenses) : '$0'}
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm text-muted-foreground">Remaining</div>
-                    <div className={`font-semibold ${budgetSummary && budgetSummary.remaining >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                    <div className="text-xs md:text-sm text-muted-foreground">Remaining</div>
+                    <div className={`font-semibold text-sm md:text-base ${budgetSummary && budgetSummary.remaining >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {budgetSummary ? formatCurrency(budgetSummary.remaining) : '$0'}
                     </div>
                   </div>
@@ -255,7 +255,7 @@ function DashboardContent() {
                       return (
                         <div key={category.category} className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">{category.category}</span>
+                            <span className="text-sm font-medium truncate">{category.category}</span>
                             <div className="text-right">
                               <div className="text-sm font-medium">
                                 {formatCurrency(category.spent)}
@@ -267,7 +267,7 @@ function DashboardContent() {
                           </div>
                           <div className="flex items-center gap-2">
                             <Progress value={categoryProgress} className="flex-1 h-2" />
-                            <span className="text-xs text-muted-foreground w-12 text-right">
+                            <span className="text-xs text-muted-foreground w-8 md:w-12 text-right">
                               {Math.round(categoryProgress)}%
                             </span>
                           </div>
@@ -373,7 +373,7 @@ function DashboardContent() {
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Completed: {projectStats.completedTasks}</span>
-                    <span>In Progress: {projectStats.inProgressTasks}</span>
+                    <span className="hidden sm:inline">In Progress: {projectStats.inProgressTasks}</span>
                     <span>Not Started: {projectStats.notStartedTasks}</span>
                   </div>
                 </div>

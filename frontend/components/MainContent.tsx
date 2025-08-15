@@ -11,7 +11,7 @@ export function MainContent() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-6 border-b border-border flex-shrink-0">
+      <div className="p-4 md:p-6 border-b border-border flex-shrink-0">
         <ProjectTitleHeader />
       </div>
 
@@ -19,41 +19,41 @@ export function MainContent() {
       <div className="flex-1 overflow-hidden">
         <ErrorBoundary>
           <Tabs defaultValue="dashboard" className="h-full flex flex-col">
-            <div className="px-6 pt-6 flex-shrink-0">
-              <TabsList className="grid w-fit grid-cols-5">
-                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                <TabsTrigger value="task-cards">Task Cards</TabsTrigger>
-                <TabsTrigger value="gantt-chart">Gantt Chart</TabsTrigger>
-                <TabsTrigger value="budget">Budget</TabsTrigger>
-                <TabsTrigger value="inspiration">Inspiration</TabsTrigger>
+            <div className="px-4 md:px-6 pt-4 md:pt-6 flex-shrink-0">
+              <TabsList className="grid w-full grid-cols-5 md:w-fit md:grid-cols-5">
+                <TabsTrigger value="dashboard" className="text-xs md:text-sm">Dashboard</TabsTrigger>
+                <TabsTrigger value="task-cards" className="text-xs md:text-sm">Tasks</TabsTrigger>
+                <TabsTrigger value="gantt-chart" className="text-xs md:text-sm">Gantt</TabsTrigger>
+                <TabsTrigger value="budget" className="text-xs md:text-sm">Budget</TabsTrigger>
+                <TabsTrigger value="inspiration" className="text-xs md:text-sm">Ideas</TabsTrigger>
               </TabsList>
             </div>
             
-            <TabsContent value="dashboard" className="flex-1 overflow-hidden px-6 pb-6 mt-6">
+            <TabsContent value="dashboard" className="flex-1 overflow-hidden px-4 md:px-6 pb-4 md:pb-6 mt-4 md:mt-6">
               <div className="h-full overflow-y-auto">
                 <Dashboard />
               </div>
             </TabsContent>
             
-            <TabsContent value="task-cards" className="flex-1 overflow-hidden px-6 pb-6 mt-6">
+            <TabsContent value="task-cards" className="flex-1 overflow-hidden px-4 md:px-6 pb-4 md:pb-6 mt-4 md:mt-6">
               <div className="h-full overflow-hidden">
                 <TaskCardsView />
               </div>
             </TabsContent>
             
-            <TabsContent value="gantt-chart" className="flex-1 overflow-hidden px-6 pb-6 mt-6">
+            <TabsContent value="gantt-chart" className="flex-1 overflow-hidden px-4 md:px-6 pb-4 md:pb-6 mt-4 md:mt-6">
               <div className="h-full overflow-y-auto">
                 <GanttChartView />
               </div>
             </TabsContent>
             
-            <TabsContent value="budget" className="flex-1 overflow-hidden px-6 pb-6 mt-6">
+            <TabsContent value="budget" className="flex-1 overflow-hidden px-4 md:px-6 pb-4 md:pb-6 mt-4 md:mt-6">
               <div className="h-full overflow-y-auto">
                 <Budget />
               </div>
             </TabsContent>
             
-            <TabsContent value="inspiration" className="flex-1 overflow-hidden px-6 pb-6 mt-6">
+            <TabsContent value="inspiration" className="flex-1 overflow-hidden px-4 md:px-6 pb-4 md:pb-6 mt-4 md:mt-6">
               <div className="h-full overflow-y-auto">
                 <Inspiration />
               </div>
