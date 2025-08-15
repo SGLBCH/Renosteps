@@ -60,12 +60,22 @@ export function Budget() {
   const handleSubmitExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!currentProject) {
+      toast({
+        title: "Error",
+        description: "No project selected",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       const expenseData = {
         amount: parseFloat(formData.amount),
         description: formData.description,
         category: formData.category,
-        date: new Date(formData.date)
+        date: new Date(formData.date),
+        projectId: currentProject.id
       };
 
       if (editingExpense) {
@@ -105,6 +115,15 @@ export function Budget() {
   };
 
   const handleUpdateBudget = async () => {
+    if (!currentProject) {
+      toast({
+        title: "Error",
+        description: "No project selected",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const amount = parseFloat(budgetAmount);
       if (isNaN(amount) || amount < 0) {
@@ -116,7 +135,10 @@ export function Budget() {
         return;
       }
 
-      await backend.budget.updateBudget({ totalBudget: amount });
+      await backend.budget.updateBudget({ 
+        totalBudget: amount,
+        projectId: currentProject.id
+      });
       toast({
         title: "Success",
         description: "Budget updated successfully",

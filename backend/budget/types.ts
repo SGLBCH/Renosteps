@@ -1,6 +1,7 @@
 export interface BudgetSettings {
   id: number;
   totalBudget: number;
+  projectId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -11,6 +12,7 @@ export interface BudgetExpense {
   description: string;
   amount: number;
   date: Date;
+  projectId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,10 +22,16 @@ export interface CreateExpenseRequest {
   description: string;
   amount: number;
   date?: Date;
+  projectId?: string;
 }
 
 export interface UpdateBudgetRequest {
   totalBudget: number;
+  projectId?: string;
+}
+
+export interface BudgetSummaryRequest {
+  projectId?: string;
 }
 
 export interface BudgetSummaryResponse {

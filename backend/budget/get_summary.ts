@@ -1,25 +1,30 @@
 import { api } from "encore.dev/api";
 import { budgetDB } from "./db";
-import type { BudgetSummaryResponse, BudgetExpense } from "./types";
+import type { BudgetSummaryRequest, BudgetSummaryResponse, BudgetExpense } from "./types";
 
-// Retrieves budget summary with total, spent, remaining, and category breakdown.
-export const getSummary = api<void, BudgetSummaryResponse>(
+// Retrieves budget summary with total, spent, remaining, and category breakdown for a specific project.
+export const getSummary = api<BudgetSummaryRequest, BudgetSummaryResponse>(
   { expose: true, method: "GET", path: "/budget/summary" },
-  async () => {
-    // Get budget settings
+  async (req) => {
+    const projectId = req.projectId || '1'; // Default to project 1 if not specified
+
+    // Get budget settings for the project
     const budgetSettings = await budgetDB.queryRow<{ total_budget: number }>`
-      SELECT total_budget FROM budget_settings ORDER BY id DESC LIMIT 1
+      SELECT total_budget FROM budget_settings 
+      WHERE project_id = ${projectId}
+      ORDER BY id DESC LIMIT 1
     `;
 
     const totalBudget = budgetSettings?.total_budget || 0;
 
-    // Get all expenses
+    // Get all expenses for the project
     const expenses: BudgetExpense[] = [];
     for await (const row of budgetDB.query<BudgetExpense>`
       SELECT 
-        id, category, description, amount, date,
+        id, category, description, amount, date, project_id as "projectId",
         created_at as "createdAt", updated_at as "updatedAt"
       FROM budget_expenses
+      WHERE project_id = ${projectId}
       ORDER BY date DESC, created_at DESC
     `) {
       expenses.push(row);

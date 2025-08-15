@@ -2,15 +2,18 @@ import { api } from "encore.dev/api";
 import { budgetDB } from "./db";
 import type { UpdateBudgetRequest, BudgetSettings } from "./types";
 
-// Updates the total budget amount.
+// Updates the total budget amount for a specific project.
 export const updateBudget = api<UpdateBudgetRequest, BudgetSettings>(
   { expose: true, method: "PUT", path: "/budget" },
   async (req) => {
     const now = new Date();
+    const projectId = req.projectId || '1'; // Default to project 1 if not specified
 
-    // Check if budget settings exist
+    // Check if budget settings exist for this project
     const existing = await budgetDB.queryRow`
-      SELECT id FROM budget_settings ORDER BY id DESC LIMIT 1
+      SELECT id FROM budget_settings 
+      WHERE project_id = ${projectId}
+      ORDER BY id DESC LIMIT 1
     `;
 
     if (existing) {
@@ -23,16 +26,17 @@ export const updateBudget = api<UpdateBudgetRequest, BudgetSettings>(
     } else {
       // Create new
       await budgetDB.exec`
-        INSERT INTO budget_settings (total_budget, created_at, updated_at)
-        VALUES (${req.totalBudget}, ${now}, ${now})
+        INSERT INTO budget_settings (total_budget, project_id, created_at, updated_at)
+        VALUES (${req.totalBudget}, ${projectId}, ${now}, ${now})
       `;
     }
 
     const updated = await budgetDB.queryRow<BudgetSettings>`
       SELECT 
-        id, total_budget as "totalBudget",
+        id, total_budget as "totalBudget", project_id as "projectId",
         created_at as "createdAt", updated_at as "updatedAt"
       FROM budget_settings 
+      WHERE project_id = ${projectId}
       ORDER BY id DESC LIMIT 1
     `;
 
