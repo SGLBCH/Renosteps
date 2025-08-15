@@ -1,37 +1,41 @@
 import { api } from "encore.dev/api";
 import { Bucket } from "encore.dev/storage/objects";
-import { inspirationDB } from "./db";
-import type { UploadFileRequest, UploadFileResponse } from "./types";
 
-const inspirationFiles = new Bucket("inspiration-files");
+const inspirationBucket = new Bucket("inspiration-files", {
+  public: true,
+});
 
-// Generates a signed upload URL for an inspiration file.
+export interface UploadFileRequest {
+  filename: string;
+  contentType: string;
+  data: number[];
+}
+
+export interface UploadFileResponse {
+  url: string;
+}
+
+// Uploads a file to object storage and returns the public URL.
 export const uploadFile = api<UploadFileRequest, UploadFileResponse>(
-  { expose: true, method: "POST", path: "/inspiration/:inspirationId/upload" },
+  { expose: true, method: "POST", path: "/inspiration/upload" },
   async (req) => {
-    // Generate a unique filename
+    // Generate unique filename
     const timestamp = Date.now();
-    const filename = `${req.inspirationId}/${timestamp}-${req.originalName}`;
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    const extension = req.filename.split('.').pop() || '';
+    const uniqueFilename = `${timestamp}-${randomSuffix}.${extension}`;
 
-    // Store file metadata in database
-    const fileRow = await inspirationDB.queryRow<{ id: number }>`
-      INSERT INTO inspiration_files (inspiration_id, filename, original_name, file_size, content_type)
-      VALUES (${req.inspirationId}, ${filename}, ${req.originalName}, ${req.fileSize}, ${req.contentType})
-      RETURNING id
-    `;
+    // Convert number array back to Buffer
+    const buffer = Buffer.from(req.data);
 
-    if (!fileRow) {
-      throw new Error("Failed to create file record");
-    }
-
-    // Generate signed upload URL
-    const { url } = await inspirationFiles.signedUploadUrl(filename, {
-      ttl: 3600, // 1 hour
+    // Upload to bucket
+    await inspirationBucket.upload(uniqueFilename, buffer, {
+      contentType: req.contentType,
     });
 
-    return {
-      uploadUrl: url,
-      fileId: fileRow.id,
-    };
+    // Return public URL
+    const url = inspirationBucket.publicUrl(uniqueFilename);
+    
+    return { url };
   }
 );

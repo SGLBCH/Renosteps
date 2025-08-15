@@ -3,6 +3,7 @@ export interface CreateInspirationRequest {
   title: string;
   description?: string;
   category?: string;
+  fileUrl?: string;
 }
 
 export interface InspirationFile {
@@ -20,6 +21,7 @@ export interface Inspiration {
   title: string;
   description?: string;
   category?: string;
+  fileUrl?: string;
   files: InspirationFile[];
   createdAt: Date;
   updatedAt: Date;

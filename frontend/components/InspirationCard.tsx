@@ -3,8 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { ExternalLink, Trash2, FileImage } from 'lucide-react';
-import { EditInspirationDialog } from './EditInspirationDialog';
+import { ExternalLink, Trash2, FileImage, Edit } from 'lucide-react';
 import backend from '~backend/client';
 import type { Inspiration } from '~backend/inspiration/types';
 
@@ -25,7 +24,7 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
     setIsDeleting(true);
     
     try {
-      await backend.inspiration.delete({ id: inspiration.id });
+      await backend.inspiration.deleteInspiration({ id: inspiration.id });
       toast({
         title: "Success",
         description: "Inspiration deleted successfully",
@@ -43,29 +42,18 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
     }
   };
 
-  const handleFileClick = async () => {
-    if (!inspiration.fileId) return;
-    
-    try {
-      const response = await backend.inspiration.getFileUrl({ fileId: inspiration.fileId });
-      window.open(response.url, '_blank');
-    } catch (error) {
-      console.error('Failed to get file URL:', error);
-      toast({
-        title: "Error",
-        description: "Failed to open file",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <CardTitle className="text-lg line-clamp-2">{inspiration.title}</CardTitle>
           <div className="flex items-center space-x-1 ml-2">
-            <EditInspirationDialog inspiration={inspiration} onUpdate={onUpdate || (() => {})} />
+            <Button
+              variant="ghost"
+              size="sm"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -79,6 +67,18 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col space-y-3">
+        {/* Image Display */}
+        {inspiration.fileUrl && (
+          <div className="w-full h-48 rounded-lg overflow-hidden bg-muted">
+            <img 
+              src={inspiration.fileUrl} 
+              alt={inspiration.title}
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-200 cursor-pointer"
+              onClick={() => window.open(inspiration.fileUrl, '_blank')}
+            />
+          </div>
+        )}
+
         {inspiration.description && (
           <p className="text-sm text-muted-foreground line-clamp-3">
             {inspiration.description}
@@ -86,28 +86,22 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
         )}
         
         <div className="flex flex-wrap gap-2 mt-auto">
-          {inspiration.url && (
+          {inspiration.fileUrl && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open(inspiration.url, '_blank')}
-              className="flex items-center space-x-1"
-            >
-              <ExternalLink className="h-3 w-3" />
-              <span>Visit</span>
-            </Button>
-          )}
-          
-          {inspiration.fileId && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleFileClick}
+              onClick={() => window.open(inspiration.fileUrl, '_blank')}
               className="flex items-center space-x-1"
             >
               <FileImage className="h-3 w-3" />
-              <span>View File</span>
+              <span>View Image</span>
             </Button>
+          )}
+          
+          {inspiration.category && (
+            <Badge variant="secondary" className="text-xs">
+              {inspiration.category}
+            </Badge>
           )}
           
           <Badge variant="secondary" className="text-xs">

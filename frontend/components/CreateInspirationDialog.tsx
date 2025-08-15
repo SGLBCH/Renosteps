@@ -4,177 +4,118 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Upload, X } from 'lucide-react';
-import { useCreateInspiration, useUploadFile } from '../hooks/useInspiration';
 import { useToast } from '@/components/ui/use-toast';
+import backend from '~backend/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface CreateInspirationDialogProps {
   projectId: number;
 }
 
-interface FileUpload {
-  file: File;
-  id: string;
-}
-
-const INSPIRATION_CATEGORIES = [
-  'Design',
-  'Architecture',
-  'Materials',
-  'Colors',
-  'Furniture',
-  'Lighting',
-  'Landscaping',
-  'Other'
-];
-
 export function CreateInspirationDialog({ projectId }: CreateInspirationDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [files, setFiles] = useState<FileUpload[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const { toast } = useToast();
-  const createInspiration = useCreateInspiration();
-  const uploadFile = useUploadFile();
+  const queryClient = useQueryClient();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(event.target.files || []);
-    
-    // Validate file count
-    if (files.length + selectedFiles.length > 5) {
-      toast({
-        title: 'Too many files',
-        description: 'Maximum 5 files allowed',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Validate each file
-    const validFiles: FileUpload[] = [];
-    for (const file of selectedFiles) {
-      // Check file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
         toast({
-          title: 'File too large',
-          description: `${file.name} is larger than 5MB`,
-          variant: 'destructive',
+          title: "Invalid file type",
+          description: "Please select an image file",
+          variant: "destructive",
         });
-        continue;
+        return;
       }
 
-      // Check file type
-      const validTypes = ['image/jpeg', 'image/png', 'application/pdf'];
-      if (!validTypes.includes(file.type)) {
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
         toast({
-          title: 'Invalid file type',
-          description: `${file.name} must be JPG, PNG, or PDF`,
-          variant: 'destructive',
+          title: "File too large",
+          description: "Please select a file smaller than 10MB",
+          variant: "destructive",
         });
-        continue;
+        return;
       }
 
-      validFiles.push({
-        file,
-        id: Math.random().toString(36).substr(2, 9),
-      });
+      setSelectedFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
     }
-
-    setFiles(prev => [...prev, ...validFiles]);
-    
-    // Reset input
-    event.target.value = '';
   };
 
-  const removeFile = (id: string) => {
-    setFiles(prev => prev.filter(f => f.id !== id));
+  const removeFile = () => {
+    setSelectedFile(null);
+    setImagePreview(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!title.trim()) {
-      toast({
-        title: 'Title required',
-        description: 'Please enter a title for the inspiration',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!title.trim()) return;
 
     setIsSubmitting(true);
-
     try {
+      let fileUrl = null;
+
+      // Upload file if selected
+      if (selectedFile) {
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        const buffer = new Uint8Array(arrayBuffer);
+        
+        const uploadResult = await backend.inspiration.uploadFile({
+          filename: selectedFile.name,
+          contentType: selectedFile.type,
+          data: Array.from(buffer),
+        });
+        
+        fileUrl = uploadResult.url;
+      }
+
       // Create inspiration
-      const inspiration = await createInspiration.mutateAsync({
+      await backend.inspiration.create({
         projectId,
         title: title.trim(),
         description: description.trim() || undefined,
-        category: category || undefined,
-      });
-
-      // Upload files
-      for (const fileUpload of files) {
-        try {
-          const uploadResponse = await uploadFile.mutateAsync({
-            inspirationId: inspiration.id,
-            filename: fileUpload.file.name,
-            originalName: fileUpload.file.name,
-            fileSize: fileUpload.file.size,
-            contentType: fileUpload.file.type,
-          });
-
-          // Upload file to signed URL
-          await fetch(uploadResponse.uploadUrl, {
-            method: 'PUT',
-            body: fileUpload.file,
-            headers: {
-              'Content-Type': fileUpload.file.type,
-            },
-          });
-        } catch (error) {
-          console.error(`Failed to upload file ${fileUpload.file.name}:`, error);
-          toast({
-            title: 'Upload warning',
-            description: `Failed to upload ${fileUpload.file.name}`,
-            variant: 'destructive',
-          });
-        }
-      }
-
-      toast({
-        title: 'Success',
-        description: 'Inspiration created successfully',
+        fileUrl,
       });
 
       // Reset form
       setTitle('');
       setDescription('');
-      setCategory('');
-      setFiles([]);
+      setSelectedFile(null);
+      setImagePreview(null);
       setOpen(false);
+
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ['inspiration', projectId] });
+
+      toast({
+        title: "Success",
+        description: "Inspiration created successfully",
+      });
     } catch (error) {
       console.error('Failed to create inspiration:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to create inspiration',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to create inspiration",
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -185,15 +126,13 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
           Add Inspiration
         </Button>
       </DialogTrigger>
-      
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add New Inspiration</DialogTitle>
         </DialogHeader>
-        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor="title">Title</Label>
             <Input
               id="title"
               value={title}
@@ -209,90 +148,70 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe your inspiration (max 200 characters)"
-              maxLength={200}
+              placeholder="Enter description (optional)"
               rows={3}
             />
-            <div className="text-xs text-muted-foreground text-right">
-              {description.length}/200
-            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a category (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {INSPIRATION_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Files (max 5, 5MB each)</Label>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => document.getElementById('file-input')?.click()}
-                  disabled={files.length >= 5}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Files
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  JPG, PNG, PDF only
-                </span>
+            <Label>Image (optional)</Label>
+            {!selectedFile ? (
+              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
+                <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground mb-2">
+                  Click to upload an image
+                </p>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="cursor-pointer"
+                />
               </div>
-              
-              <input
-                id="file-input"
-                type="file"
-                multiple
-                accept=".jpg,.jpeg,.png,.pdf"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-
-              {files.length > 0 && (
-                <div className="space-y-2">
-                  {files.map((fileUpload) => (
-                    <div
-                      key={fileUpload.id}
-                      className="flex items-center justify-between p-2 border rounded-md"
+            ) : (
+              <div className="space-y-3">
+                {/* Image Preview */}
+                {imagePreview && (
+                  <div className="relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview"
+                      className="w-full h-32 object-cover rounded border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={removeFile}
                     >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">
-                          {fileUpload.file.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatFileSize(fileUpload.file.size)}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile(fileUpload.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                
+                {/* File Info */}
+                <div className="border rounded-lg p-3 flex items-center justify-between">
+                  <div className="text-sm">
+                    <p className="font-medium">{selectedFile.name}</p>
+                    <p className="text-muted-foreground">
+                      {(selectedFile.size / 1024 / 1024).toFixed(1)} MB
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeFile}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="flex justify-end space-x-2">
             <Button
               type="button"
               variant="outline"
@@ -301,8 +220,8 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Inspiration'}
+            <Button type="submit" disabled={!title.trim() || isSubmitting}>
+              {isSubmitting ? 'Creating...' : 'Create'}
             </Button>
           </div>
         </form>

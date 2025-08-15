@@ -12,6 +12,7 @@ export const list = api<ListInspirationsRequest, ListInspirationsResponse>(
       title: string;
       description: string | null;
       category: string | null;
+      file_url: string | null;
       created_at: Date;
       updated_at: Date;
     }>`
@@ -51,6 +52,7 @@ export const list = api<ListInspirationsRequest, ListInspirationsResponse>(
         title: row.title,
         description: row.description || undefined,
         category: row.category || undefined,
+        fileUrl: row.file_url || undefined,
         files,
         createdAt: row.created_at,
         updatedAt: row.updated_at,

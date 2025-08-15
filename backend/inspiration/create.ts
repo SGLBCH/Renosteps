@@ -12,11 +12,12 @@ export const create = api<CreateInspirationRequest, Inspiration>(
       title: string;
       description: string | null;
       category: string | null;
+      file_url: string | null;
       created_at: Date;
       updated_at: Date;
     }>`
-      INSERT INTO inspirations (project_id, title, description, category)
-      VALUES (${req.projectId}, ${req.title}, ${req.description || null}, ${req.category || null})
+      INSERT INTO inspirations (project_id, title, description, category, file_url)
+      VALUES (${req.projectId}, ${req.title}, ${req.description || null}, ${req.category || null}, ${req.fileUrl || null})
       RETURNING *
     `;
 
@@ -30,6 +31,7 @@ export const create = api<CreateInspirationRequest, Inspiration>(
       title: row.title,
       description: row.description || undefined,
       category: row.category || undefined,
+      fileUrl: row.file_url || undefined,
       files: [],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
