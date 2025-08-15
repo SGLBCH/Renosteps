@@ -6,10 +6,17 @@ import { Budget } from './Budget';
 import { Inspiration } from './Inspiration';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ProjectTitleHeader } from './ProjectTitleHeader';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sidebar } from './Sidebar';
+import { Menu } from 'lucide-react';
+import { useState } from 'react';
 
 export function MainContent() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden relative">
       {/* Header */}
       <div className="p-4 md:p-6 border-b border-border flex-shrink-0">
         <ProjectTitleHeader />
@@ -60,6 +67,26 @@ export function MainContent() {
             </TabsContent>
           </Tabs>
         </ErrorBoundary>
+      </div>
+
+      {/* Mobile Sidebar Menu - Fixed at bottom left */}
+      <div className="lg:hidden">
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button 
+              variant="default" 
+              size="icon" 
+              className="fixed bottom-4 left-4 z-50 h-12 w-12 rounded-xl shadow-lg bg-primary hover:bg-primary/90"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-80">
+            <ErrorBoundary>
+              <Sidebar collapsed={false} onToggleCollapse={() => {}} />
+            </ErrorBoundary>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );
