@@ -3,6 +3,7 @@ import { TaskCardsView } from './TaskCardsView';
 import { GanttChartView } from './GanttChartView';
 import { Dashboard } from './Dashboard';
 import { Budget } from './Budget';
+import { Inspiration } from './Inspiration';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ProjectTitleHeader } from './ProjectTitleHeader';
 
@@ -19,11 +20,12 @@ export function MainContent() {
         <ErrorBoundary>
           <Tabs defaultValue="dashboard" className="h-full flex flex-col">
             <div className="px-6 pt-6 flex-shrink-0">
-              <TabsList className="grid w-fit grid-cols-4">
+              <TabsList className="grid w-fit grid-cols-5">
                 <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
                 <TabsTrigger value="task-cards">Task Cards</TabsTrigger>
                 <TabsTrigger value="gantt-chart">Gantt Chart</TabsTrigger>
                 <TabsTrigger value="budget">Budget</TabsTrigger>
+                <TabsTrigger value="inspiration">Inspiration</TabsTrigger>
               </TabsList>
             </div>
             
@@ -48,6 +50,12 @@ export function MainContent() {
             <TabsContent value="budget" className="flex-1 overflow-hidden px-6 pb-6 mt-6">
               <div className="h-full overflow-y-auto">
                 <Budget />
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="inspiration" className="flex-1 overflow-hidden px-6 pb-6 mt-6">
+              <div className="h-full overflow-y-auto">
+                <Inspiration />
               </div>
             </TabsContent>
           </Tabs>
