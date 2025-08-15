@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useToast } from '@/components/ui/use-toast';
+import backend from '~backend/client';
 
 interface User {
   id: string;
@@ -40,44 +41,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const savedToken = localStorage.getItem('authToken');
     if (savedToken) {
       setToken(savedToken);
-      // You could verify the token here by calling the /auth/me endpoint
-      // For now, we'll assume it's valid
-      const savedUser = localStorage.getItem('authUser');
-      if (savedUser) {
+      
+      // Verify the token by calling the /auth/me endpoint
+      const verifyToken = async () => {
         try {
-          setUser(JSON.parse(savedUser));
+          const authenticatedBackend = backend.with({
+            auth: async () => ({
+              authorization: `Bearer ${savedToken}`,
+            }),
+          });
+          
+          const userProfile = await authenticatedBackend.auth.me();
+          setUser({
+            id: userProfile.id.toString(),
+            email: userProfile.email,
+          });
         } catch (error) {
-          console.error('Failed to parse saved user:', error);
+          console.error('Token verification failed:', error);
+          // Clear invalid token
           localStorage.removeItem('authToken');
           localStorage.removeItem('authUser');
+          setToken(null);
+          setUser(null);
         }
-      }
+      };
+      
+      verifyToken();
     }
     setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      const response = await backend.auth.login({ email, password });
+      
+      setToken(response.token);
+      setUser({
+        id: response.user.id.toString(),
+        email: response.user.email,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
-      }
-
-      const data = await response.json();
       
-      setToken(data.token);
-      setUser(data.user);
-      
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('authUser', JSON.stringify(data.user));
+      localStorage.setItem('authToken', response.token);
+      localStorage.setItem('authUser', JSON.stringify({
+        id: response.user.id.toString(),
+        email: response.user.email,
+      }));
 
       toast({
         title: 'Success',
@@ -85,37 +93,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
     } catch (error) {
       console.error('Login error:', error);
+      
+      let errorMessage = 'Login failed';
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid email or password')) {
+          errorMessage = 'Invalid email or password';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again.';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Login failed',
+        description: errorMessage,
         variant: 'destructive',
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   };
 
   const register = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      const response = await backend.auth.register({ email, password });
+      
+      setToken(response.token);
+      setUser({
+        id: response.user.id.toString(),
+        email: response.user.email,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Registration failed');
-      }
-
-      const data = await response.json();
       
-      setToken(data.token);
-      setUser(data.user);
-      
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('authUser', JSON.stringify(data.user));
+      localStorage.setItem('authToken', response.token);
+      localStorage.setItem('authUser', JSON.stringify({
+        id: response.user.id.toString(),
+        email: response.user.email,
+      }));
 
       toast({
         title: 'Success',
@@ -123,12 +138,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
     } catch (error) {
       console.error('Registration error:', error);
+      
+      let errorMessage = 'Registration failed';
+      if (error instanceof Error) {
+        if (error.message.includes('User with this email already exists')) {
+          errorMessage = 'An account with this email already exists';
+        } else if (error.message.includes('Invalid email format')) {
+          errorMessage = 'Please enter a valid email address';
+        } else if (error.message.includes('Password must be at least 8 characters')) {
+          errorMessage = 'Password must be at least 8 characters long';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please try again.';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Registration failed',
+        description: errorMessage,
         variant: 'destructive',
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   };
 
