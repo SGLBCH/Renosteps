@@ -15,6 +15,7 @@ interface InspirationCardProps {
 
 export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const handleDelete = async () => {
@@ -46,10 +47,9 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
     if (!inspiration.fileUrl) return;
     
     try {
-      const response = await backend.inspiration.getFileUrl({ id: inspiration.id });
-      window.open(response.url, '_blank');
+      window.open(inspiration.fileUrl, '_blank');
     } catch (error) {
-      console.error('Failed to get file URL:', error);
+      console.error('Failed to open file:', error);
       toast({
         title: 'Error',
         description: 'Failed to open file. Please try again.',
@@ -66,15 +66,34 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
       <CardContent className="flex-1 flex flex-col space-y-4">
         {/* Image/File Preview Section */}
         {inspiration.fileUrl ? (
-          <div className="relative bg-muted rounded-lg overflow-hidden aspect-video flex items-center justify-center">
-            <Button
-              variant="ghost"
-              onClick={handleViewFile}
-              className="h-full w-full flex flex-col items-center justify-center space-y-2 hover:bg-muted/80"
-            >
-              <FileText className="h-12 w-12 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Click to view file</span>
-            </Button>
+          <div className="relative bg-muted rounded-lg overflow-hidden aspect-video group cursor-pointer" onClick={handleViewFile}>
+            <img 
+              src={inspiration.fileUrl} 
+              alt={inspiration.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Fallback to file icon if image fails to load
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const fallback = target.nextElementSibling as HTMLElement;
+                if (fallback) {
+                  fallback.style.display = 'flex';
+                }
+              }}
+            />
+            {/* Fallback for non-image files */}
+            <div className="absolute inset-0 hidden items-center justify-center bg-muted">
+              <div className="text-center space-y-2">
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto" />
+                <span className="text-sm text-muted-foreground">Click to view file</span>
+              </div>
+            </div>
+            {/* Overlay for click action */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 rounded-full p-2">
+                <ExternalLink className="h-5 w-5 text-gray-700" />
+              </div>
+            </div>
           </div>
         ) : (
           <div className="bg-muted rounded-lg aspect-video flex items-center justify-center">
@@ -103,12 +122,10 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
             Created {new Date(inspiration.createdAt).toLocaleDateString()}
           </div>
           <div className="flex items-center space-x-2">
-            <EditInspirationDialog inspiration={inspiration} onUpdate={onUpdate}>
-              <Button variant="outline" size="sm">
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </Button>
-            </EditInspirationDialog>
+            <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(true)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -122,6 +139,13 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
           </div>
         </div>
       </CardContent>
+
+      <EditInspirationDialog 
+        inspiration={inspiration} 
+        open={editDialogOpen} 
+        onOpenChange={setEditDialogOpen}
+        onUpdate={onUpdate}
+      />
     </Card>
   );
 }

@@ -15,9 +15,10 @@ interface EditInspirationDialogProps {
   inspiration: Inspiration;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUpdate: () => void;
 }
 
-export function EditInspirationDialog({ inspiration, open, onOpenChange }: EditInspirationDialogProps) {
+export function EditInspirationDialog({ inspiration, open, onOpenChange, onUpdate }: EditInspirationDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -208,6 +209,7 @@ export function EditInspirationDialog({ inspiration, open, onOpenChange }: EditI
       });
 
       onOpenChange(false);
+      onUpdate();
 
       // Refresh data
       queryClient.invalidateQueries({ queryKey: ['inspiration', inspiration.projectId] });
