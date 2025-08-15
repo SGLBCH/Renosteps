@@ -27,6 +27,14 @@ interface TouchState {
   startTime: number;
   isScrolling: boolean;
   scrollStartX: number;
+  scrollStartY: number;
+  isDraggingTask: boolean;
+}
+
+interface ViewportState {
+  offsetX: number;
+  offsetY: number;
+  scale: number;
 }
 
 function GanttChartContent() {
@@ -50,10 +58,18 @@ function GanttChartContent() {
     startTime: 0,
     isScrolling: false,
     scrollStartX: 0,
+    scrollStartY: 0,
+    isDraggingTask: false,
+  });
+  const [viewportState, setViewportState] = useState<ViewportState>({
+    offsetX: 0,
+    offsetY: 0,
+    scale: 1,
   });
   const { toast } = useToast();
   const ganttRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const isMobile = window.innerWidth < 768;
 
   // Filter tasks that have both start and end dates
   const tasksWithDates = tasks.filter(task => task.startDate && task.endDate);
@@ -63,23 +79,23 @@ function GanttChartContent() {
     const startDate = new Date(currentDate);
     
     if (viewMode === 'day') {
-      // Show 7 days on mobile, 14 on desktop
-      const daysToShow = window.innerWidth < 768 ? 7 : 14;
+      // Show more days on mobile for better swipe navigation
+      const daysToShow = isMobile ? 14 : 14;
       startDate.setDate(startDate.getDate() - Math.floor(daysToShow / 2));
       for (let i = 0; i < daysToShow; i++) {
         const date = new Date(startDate);
         date.setDate(date.getDate() + i);
         dates.push({
           date: new Date(date),
-          label: window.innerWidth < 768 
+          label: isMobile 
             ? date.toLocaleDateString('en-US', { day: 'numeric' })
             : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           key: date.toISOString().split('T')[0]
         });
       }
     } else if (viewMode === 'week') {
-      // Show 4 weeks on mobile, 8 on desktop
-      const weeksToShow = window.innerWidth < 768 ? 4 : 8;
+      // Show more weeks on mobile for better swipe navigation
+      const weeksToShow = isMobile ? 8 : 8;
       const startOfWeek = new Date(startDate);
       startOfWeek.setDate(startDate.getDate() - startDate.getDay() - (weeksToShow * 7 / 2));
       
@@ -91,15 +107,15 @@ function GanttChartContent() {
         
         dates.push({
           date: new Date(weekStart),
-          label: window.innerWidth < 768
+          label: isMobile
             ? `W${Math.ceil((weekStart.getDate()) / 7)}`
             : `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
           key: `week-${weekStart.toISOString().split('T')[0]}`
         });
       }
     } else if (viewMode === 'month') {
-      // Show 3 months on mobile, 6 on desktop
-      const monthsToShow = window.innerWidth < 768 ? 3 : 6;
+      // Show more months on mobile for better swipe navigation
+      const monthsToShow = isMobile ? 6 : 6;
       startDate.setMonth(startDate.getMonth() - Math.floor(monthsToShow / 2));
       startDate.setDate(1);
       
@@ -108,7 +124,7 @@ function GanttChartContent() {
         monthDate.setMonth(monthDate.getMonth() + i);
         dates.push({
           date: new Date(monthDate),
-          label: window.innerWidth < 768
+          label: isMobile
             ? monthDate.toLocaleDateString('en-US', { month: 'short' })
             : monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
           key: `month-${monthDate.getFullYear()}-${monthDate.getMonth()}`
@@ -235,7 +251,7 @@ function GanttChartContent() {
     const width = ((endPosition - startPosition) / totalColumns) * 100;
     const left = (startPosition / totalColumns) * 100;
     
-    const minWidth = window.innerWidth < 768 ? 5 : 2; // Larger minimum width on mobile
+    const minWidth = isMobile ? 8 : 2; // Larger minimum width on mobile
     const adjustedWidth = Math.max(width, minWidth);
     
     return { 
@@ -263,7 +279,7 @@ function GanttChartContent() {
     if (!ganttRef.current) return 0;
     
     const ganttRect = ganttRef.current.getBoundingClientRect();
-    const timelineStart = window.innerWidth < 768 ? 200 : 300; // Smaller task info column on mobile
+    const timelineStart = isMobile ? 200 : 300;
     const timelineWidth = ganttRect.width - timelineStart;
     const columnWidth = timelineWidth / dateHeaders.length;
     
@@ -286,6 +302,27 @@ function GanttChartContent() {
     return { startDate: newStartDate, endDate: newEndDate };
   };
 
+  // Mobile swipe navigation functions
+  const handleSwipeNavigation = (deltaX: number, deltaY: number) => {
+    const threshold = 50;
+    
+    // Horizontal swipes for time navigation
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) {
+      if (deltaX > 0) {
+        handlePrevious(); // Swipe right = go back in time
+      } else {
+        handleNext(); // Swipe left = go forward in time
+      }
+    }
+    // Vertical swipes for viewport movement
+    else if (Math.abs(deltaY) > threshold) {
+      setViewportState(prev => ({
+        ...prev,
+        offsetY: Math.max(-200, Math.min(200, prev.offsetY + (deltaY > 0 ? 50 : -50)))
+      }));
+    }
+  };
+
   // Touch event handlers
   const handleTouchStart = (e: React.TouchEvent, task?: Task) => {
     const touch = e.touches[0];
@@ -296,10 +333,12 @@ function GanttChartContent() {
       startY: touch.clientY,
       startTime: now,
       isScrolling: false,
-      scrollStartX: timelineRef.current?.scrollLeft || 0,
+      scrollStartX: 0,
+      scrollStartY: 0,
+      isDraggingTask: !!task,
     });
 
-    if (task) {
+    if (task && !isMobile) {
       const position = calculateTaskBarPosition(task);
       if (!position || !task.startDate || !task.endDate) return;
       
@@ -322,38 +361,52 @@ function GanttChartContent() {
     const deltaX = touch.clientX - touchState.startX;
     const deltaY = touch.clientY - touchState.startY;
     
+    // On mobile, prevent default scrolling behavior
+    if (isMobile) {
+      e.preventDefault();
+    }
+    
     // Determine if this is a scroll gesture
-    if (!touchState.isScrolling && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+    if (!touchState.isScrolling && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
       setTouchState(prev => ({ ...prev, isScrolling: true }));
     }
 
-    if (dragState.isDragging && !touchState.isScrolling) {
-      e.preventDefault();
+    // Handle task dragging on desktop
+    if (dragState.isDragging && !isMobile && !touchState.isScrolling) {
       const column = getColumnFromX(touch.clientX);
       setDragState(prev => ({ ...prev, currentColumn: column }));
-    } else if (touchState.isScrolling && timelineRef.current) {
-      // Handle horizontal scrolling
-      const newScrollLeft = touchState.scrollStartX - deltaX;
-      timelineRef.current.scrollLeft = Math.max(0, newScrollLeft);
+    }
+    // Handle viewport movement on mobile
+    else if (isMobile && touchState.isScrolling && !touchState.isDraggingTask) {
+      // Update viewport position in real-time for smooth movement
+      setViewportState(prev => ({
+        ...prev,
+        offsetX: Math.max(-300, Math.min(300, deltaX * 0.5)),
+        offsetY: Math.max(-200, Math.min(200, deltaY * 0.5))
+      }));
     }
   };
 
   const handleTouchEnd = async (e: React.TouchEvent) => {
     const touch = e.changedTouches[0];
     const deltaX = touch.clientX - touchState.startX;
+    const deltaY = touch.clientY - touchState.startY;
     const deltaTime = Date.now() - touchState.startTime;
     
-    // Handle swipe gestures for navigation
-    if (!dragState.isDragging && Math.abs(deltaX) > 50 && deltaTime < 300) {
-      if (deltaX > 0) {
-        handlePrevious();
-      } else {
-        handleNext();
-      }
+    // Handle swipe gestures on mobile
+    if (isMobile && !touchState.isDraggingTask && deltaTime < 500) {
+      handleSwipeNavigation(deltaX, deltaY);
+      
+      // Reset viewport position after swipe
+      setViewportState(prev => ({
+        ...prev,
+        offsetX: 0,
+        offsetY: 0
+      }));
     }
 
-    // Handle task drag completion
-    if (dragState.isDragging && !touchState.isScrolling) {
+    // Handle task drag completion on desktop
+    if (dragState.isDragging && !isMobile && !touchState.isScrolling) {
       const task = tasksWithDates.find(t => t.id === dragState.taskId);
       if (task) {
         const columnDiff = dragState.currentColumn - dragState.startColumn;
@@ -402,11 +455,15 @@ function GanttChartContent() {
       startTime: 0,
       isScrolling: false,
       scrollStartX: 0,
+      scrollStartY: 0,
+      isDraggingTask: false,
     });
   };
 
   // Mouse event handlers (for desktop)
   const handleMouseDown = (e: React.MouseEvent, task: Task) => {
+    if (isMobile) return;
+    
     e.preventDefault();
     
     const position = calculateTaskBarPosition(task);
@@ -426,14 +483,14 @@ function GanttChartContent() {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!dragState.isDragging) return;
+    if (!dragState.isDragging || isMobile) return;
     
     const column = getColumnFromX(e.clientX);
     setDragState(prev => ({ ...prev, currentColumn: column }));
   };
 
   const handleMouseUp = async () => {
-    if (!dragState.isDragging || !dragState.taskId) return;
+    if (!dragState.isDragging || !dragState.taskId || isMobile) return;
     
     const task = tasksWithDates.find(t => t.id === dragState.taskId);
     if (!task) return;
@@ -634,6 +691,12 @@ function GanttChartContent() {
             </div>
             
             <div className="text-sm font-medium text-center">{getCurrentDateRange()}</div>
+            
+            {isMobile && (
+              <div className="text-xs text-muted-foreground text-center bg-blue-50 p-2 rounded">
+                💡 Swipe left/right to navigate time, swipe up/down to move view
+              </div>
+            )}
           </div>
         )}
 
@@ -688,22 +751,26 @@ function GanttChartContent() {
           </div>
         </div>
 
-        {/* Gantt Grid - Scrollable */}
+        {/* Gantt Grid - Mobile: No scroll, Desktop: Scrollable */}
         <div 
-          className="flex-1 overflow-auto touch-pan-x"
+          className={`flex-1 ${isMobile ? 'overflow-hidden' : 'overflow-auto'} touch-pan-x`}
           ref={ganttRef}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          style={isMobile ? {
+            transform: `translate(${viewportState.offsetX}px, ${viewportState.offsetY}px)`,
+            transition: touchState.isScrolling ? 'none' : 'transform 0.3s ease-out'
+          } : {}}
         >
-          <div className="min-w-[600px] md:min-w-[800px] h-full" ref={timelineRef}>
+          <div className={`${isMobile ? 'min-w-[800px]' : 'min-w-[600px] md:min-w-[800px]'} h-full`} ref={timelineRef}>
             {/* Header Row */}
             <div 
               className={`grid border-b border-border sticky top-0 bg-card z-10`} 
               style={{ 
-                gridTemplateColumns: window.innerWidth < 768 
+                gridTemplateColumns: isMobile 
                   ? `200px repeat(${dateHeaders.length}, 1fr)` 
                   : `300px repeat(${dateHeaders.length}, 1fr)` 
               }}
@@ -733,7 +800,7 @@ function GanttChartContent() {
                       <div 
                         className={`grid hover:bg-accent/50 transition-colors ${isDraggingThis ? 'bg-accent/30' : ''}`} 
                         style={{ 
-                          gridTemplateColumns: window.innerWidth < 768 
+                          gridTemplateColumns: isMobile 
                             ? `200px repeat(${dateHeaders.length}, 1fr)` 
                             : `300px repeat(${dateHeaders.length}, 1fr)` 
                         }}
@@ -758,12 +825,12 @@ function GanttChartContent() {
                           {/* Original Task Bar */}
                           {barPosition && (
                             <div
-                              className={`absolute top-1/2 transform -translate-y-1/2 h-4 md:h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm cursor-move select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity z-10 touch-manipulation`}
+                              className={`absolute top-1/2 transform -translate-y-1/2 h-6 md:h-8 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm ${isMobile ? 'cursor-default' : 'cursor-move'} select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity z-10 ${isMobile ? '' : 'touch-manipulation'}`}
                               style={{
                                 left: barPosition.left,
                                 width: barPosition.width,
                               }}
-                              onMouseDown={(e) => handleMouseDown(e, task)}
+                              onMouseDown={!isMobile ? (e) => handleMouseDown(e, task) : undefined}
                               onTouchStart={(e) => handleTouchStart(e, task)}
                             >
                               <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)}`}>
@@ -777,7 +844,7 @@ function GanttChartContent() {
                           {/* Drag Preview */}
                           {dragPreviewPosition && isDraggingThis && (
                             <div
-                              className="absolute top-1/2 transform -translate-y-1/2 h-4 md:h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-lg border-2 border-primary z-20 pointer-events-none"
+                              className="absolute top-1/2 transform -translate-y-1/2 h-6 md:h-8 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-lg border-2 border-primary z-20 pointer-events-none"
                               style={{
                                 left: dragPreviewPosition.left,
                                 width: dragPreviewPosition.width,
@@ -817,7 +884,7 @@ function GanttChartContent() {
               <span>Low</span>
             </div>
             <div className="ml-0 md:ml-6 text-muted-foreground text-xs">
-              💡 Drag task bars to reschedule
+              {isMobile ? '💡 Swipe to navigate' : '💡 Drag task bars to reschedule'}
             </div>
           </div>
         </div>
