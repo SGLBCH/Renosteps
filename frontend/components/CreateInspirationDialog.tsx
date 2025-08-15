@@ -62,16 +62,34 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
     setImagePreview(null);
   };
 
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setSelectedFile(null);
+    setImagePreview(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    
+    if (!title.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a title",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
+    
     try {
       let fileUrl = null;
 
       // Upload file if selected
       if (selectedFile) {
+        console.log('Uploading file:', selectedFile.name);
+        
         const arrayBuffer = await selectedFile.arrayBuffer();
         const buffer = new Uint8Array(arrayBuffer);
         
@@ -82,21 +100,28 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
         });
         
         fileUrl = uploadResult.url;
+        console.log('File uploaded successfully:', fileUrl);
       }
 
       // Create inspiration
-      await backend.inspiration.create({
+      console.log('Creating inspiration with data:', {
         projectId,
         title: title.trim(),
         description: description.trim() || undefined,
         fileUrl,
       });
 
-      // Reset form
-      setTitle('');
-      setDescription('');
-      setSelectedFile(null);
-      setImagePreview(null);
+      const newInspiration = await backend.inspiration.create({
+        projectId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        fileUrl,
+      });
+
+      console.log('Inspiration created successfully:', newInspiration);
+
+      // Reset form and close dialog
+      resetForm();
       setOpen(false);
 
       // Refresh data
@@ -108,9 +133,15 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
       });
     } catch (error) {
       console.error('Failed to create inspiration:', error);
+      
+      let errorMessage = "Failed to create inspiration";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to create inspiration",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -118,8 +149,15 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
     }
   };
 
+  const handleDialogOpenChange = (newOpen: boolean) => {
+    if (!newOpen && !isSubmitting) {
+      resetForm();
+    }
+    setOpen(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
@@ -132,13 +170,14 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">Title *</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter inspiration title"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -150,6 +189,7 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter description (optional)"
               rows={3}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -166,6 +206,7 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
                   accept="image/*"
                   onChange={handleFileSelect}
                   className="cursor-pointer"
+                  disabled={isSubmitting}
                 />
               </div>
             ) : (
@@ -184,6 +225,7 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
                       size="sm"
                       className="absolute top-2 right-2"
                       onClick={removeFile}
+                      disabled={isSubmitting}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -203,6 +245,7 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
                     variant="ghost"
                     size="sm"
                     onClick={removeFile}
+                    disabled={isSubmitting}
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -215,13 +258,23 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => handleDialogOpenChange(false)}
               disabled={isSubmitting}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!title.trim() || isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create'}
+            <Button 
+              type="submit" 
+              disabled={!title.trim() || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                  Creating...
+                </>
+              ) : (
+                'Create'
+              )}
             </Button>
           </div>
         </form>
