@@ -6,48 +6,14 @@ import { DollarSign, TrendingUp, TrendingDown, Calendar, CheckCircle, Clock, Ale
 import { ErrorBoundary } from './ErrorBoundary';
 import { useToast } from '@/components/ui/use-toast';
 import { useBudget } from '../hooks/useBudget';
+import { useProjectStats } from '../hooks/useProjectStats';
 import backend from '~backend/client';
 import type { Task } from './TaskCardsView';
 
-interface ProjectStats {
-  totalTasks: number;
-  completedTasks: number;
-  inProgressTasks: number;
-  notStartedTasks: number;
-  overdueTasks: number;
-  upcomingTasks: number;
-}
-
 function DashboardContent() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [tasksLoading, setTasksLoading] = useState(true);
-  const [tasksError, setTasksError] = useState<string | null>(null);
+  const { projectStats, loading: tasksLoading, error: tasksError, refetch: refetchTasks } = useProjectStats();
   const { budgetSummary, loading: budgetLoading, error: budgetError } = useBudget();
   const { toast } = useToast();
-
-  const loadTasks = async () => {
-    try {
-      setTasksLoading(true);
-      setTasksError(null);
-      
-      const tasksResponse = await backend.tasks.list();
-      setTasks(tasksResponse.tasks);
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-      setTasksError('Failed to load tasks');
-      toast({
-        title: "Warning",
-        description: "Failed to load tasks data. Budget information is still available.",
-        variant: "destructive",
-      });
-    } finally {
-      setTasksLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadTasks();
-  }, []);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -57,41 +23,6 @@ function DashboardContent() {
       maximumFractionDigits: 0
     }).format(amount);
   };
-
-  const calculateProjectStats = (): ProjectStats => {
-    const now = new Date();
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(task => task.status === 'completed').length;
-    const inProgressTasks = tasks.filter(task => task.status === 'in-progress').length;
-    const notStartedTasks = tasks.filter(task => task.status === 'not-started').length;
-    
-    const overdueTasks = tasks.filter(task => {
-      if (!task.endDate || task.status === 'completed') return false;
-      return new Date(task.endDate) < now;
-    }).length;
-
-    const upcomingTasks = tasks.filter(task => {
-      if (!task.startDate || task.status === 'completed') return false;
-      const startDate = new Date(task.startDate);
-      const weekFromNow = new Date();
-      weekFromNow.setDate(weekFromNow.getDate() + 7);
-      return startDate >= now && startDate <= weekFromNow;
-    }).length;
-
-    return {
-      totalTasks,
-      completedTasks,
-      inProgressTasks,
-      notStartedTasks,
-      overdueTasks,
-      upcomingTasks,
-    };
-  };
-
-  const projectStats = calculateProjectStats();
-  const projectProgress = projectStats.totalTasks > 0 
-    ? Math.round((projectStats.completedTasks / projectStats.totalTasks) * 100)
-    : 0;
 
   const budgetProgress = budgetSummary && budgetSummary.totalBudget > 0 
     ? Math.round((budgetSummary.totalExpenses / budgetSummary.totalBudget) * 100)
@@ -131,11 +62,11 @@ function DashboardContent() {
               </div>
             ) : (
               <>
-                <div className="text-2xl font-bold">{projectProgress}%</div>
+                <div className="text-2xl font-bold">{projectStats.progress}%</div>
                 <p className="text-xs text-muted-foreground">
                   {projectStats.completedTasks} of {projectStats.totalTasks} tasks completed
                 </p>
-                <Progress value={projectProgress} className="mt-2 h-2" />
+                <Progress value={projectStats.progress} className="mt-2 h-2" />
               </>
             )}
           </CardContent>
@@ -358,7 +289,7 @@ function DashboardContent() {
                 Failed to load tasks data
                 <div className="mt-2">
                   <button 
-                    onClick={loadTasks}
+                    onClick={refetchTasks}
                     className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
                   >
                     Retry
@@ -403,7 +334,7 @@ function DashboardContent() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Overall Progress</span>
-                    <span>{projectProgress}%</span>
+                    <span>{projectStats.progress}%</span>
                   </div>
                   <div className="flex h-3 bg-secondary rounded-full overflow-hidden">
                     <div 
@@ -434,19 +365,11 @@ function DashboardContent() {
                 <div className="space-y-2">
                   <h4 className="font-medium">Recent Activity</h4>
                   <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {tasks
-                      .filter(task => task.status === 'completed')
-                      .slice(0, 3)
-                      .map((task) => (
-                        <div key={task.id} className="flex items-center gap-2 text-sm">
-                          <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
-                          <span className="truncate">{task.title}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {task.category}
-                          </Badge>
-                        </div>
-                      ))}
-                    {projectStats.completedTasks === 0 && (
+                    {projectStats.completedTasks > 0 ? (
+                      <div className="text-sm text-muted-foreground">
+                        {projectStats.completedTasks} task{projectStats.completedTasks !== 1 ? 's' : ''} completed
+                      </div>
+                    ) : (
                       <div className="text-sm text-muted-foreground">
                         No completed tasks yet
                       </div>
