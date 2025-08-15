@@ -20,6 +20,12 @@ export const update = api<UpdateProjectParams & UpdateProjectRequest, Project>(
       throw APIError.invalidArgument("End date must be after start date");
     }
 
+    // Convert string ID to number for database query
+    const projectId = parseInt(id, 10);
+    if (isNaN(projectId)) {
+      throw APIError.invalidArgument("Invalid project ID format");
+    }
+
     // Build dynamic update query
     const updateFields: string[] = [];
     const updateValues: any[] = [];
@@ -45,7 +51,7 @@ export const update = api<UpdateProjectParams & UpdateProjectRequest, Project>(
     }
 
     updateFields.push(`updated_at = NOW()`);
-    updateValues.push(id);
+    updateValues.push(projectId); // Use the converted number ID
 
     const query = `
       UPDATE projects 
@@ -55,7 +61,7 @@ export const update = api<UpdateProjectParams & UpdateProjectRequest, Project>(
     `;
 
     const row = await projectsDB.rawQueryRow<{
-      id: string;
+      id: number;
       name: string;
       start_date: Date;
       end_date: Date;
@@ -68,7 +74,7 @@ export const update = api<UpdateProjectParams & UpdateProjectRequest, Project>(
     }
 
     return {
-      id: row.id,
+      id: row.id.toString(),
       name: row.name,
       startDate: row.start_date,
       endDate: row.end_date,
