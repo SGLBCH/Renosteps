@@ -71,7 +71,7 @@ export const list = api<void, ListTasksResponse>(
 
         // Combine tasks with their subtasks
         return taskRows.map(row => ({
-          id: row.id,
+          id: row.id.toString(),
           title: row.title,
           description: row.description || undefined,
           category: row.category,

@@ -10,8 +10,8 @@ export const update = api<UpdateTaskRequest, Task>(
       throw APIError.invalidArgument("id is required");
     }
 
-    if (!req.title?.trim()) {
-      throw APIError.invalidArgument("title is required");
+    if (req.title !== undefined && !req.title?.trim()) {
+      throw APIError.invalidArgument("title cannot be empty");
     }
 
     try {
@@ -25,8 +25,67 @@ export const update = api<UpdateTaskRequest, Task>(
           throw APIError.notFound("task not found");
         }
 
-        // Update the task
-        const row = await tasksDB.queryRow<{
+        // Build dynamic update query
+        const updateFields: string[] = [];
+        const updateValues: any[] = [];
+        let paramIndex = 1;
+
+        if (req.title !== undefined) {
+          updateFields.push(`title = $${paramIndex++}`);
+          updateValues.push(req.title.trim());
+        }
+
+        if (req.description !== undefined) {
+          updateFields.push(`description = $${paramIndex++}`);
+          updateValues.push(req.description?.trim() || null);
+        }
+
+        if (req.category !== undefined) {
+          updateFields.push(`category = $${paramIndex++}`);
+          updateValues.push(req.category);
+        }
+
+        if (req.priority !== undefined) {
+          updateFields.push(`priority = $${paramIndex++}`);
+          updateValues.push(req.priority);
+        }
+
+        if (req.status !== undefined) {
+          updateFields.push(`status = $${paramIndex++}`);
+          updateValues.push(req.status);
+        }
+
+        if (req.progress !== undefined) {
+          updateFields.push(`progress = $${paramIndex++}`);
+          updateValues.push(req.progress);
+        }
+
+        if (req.startDate !== undefined) {
+          updateFields.push(`start_date = $${paramIndex++}`);
+          updateValues.push(req.startDate || null);
+        }
+
+        if (req.endDate !== undefined) {
+          updateFields.push(`end_date = $${paramIndex++}`);
+          updateValues.push(req.endDate || null);
+        }
+
+        if (updateFields.length === 0) {
+          throw APIError.invalidArgument("No fields to update");
+        }
+
+        updateFields.push(`updated_at = NOW()`);
+        updateValues.push(req.id);
+
+        const query = `
+          UPDATE tasks 
+          SET ${updateFields.join(', ')}
+          WHERE id = $${paramIndex}
+          RETURNING id, title, description, category, priority, status, progress, 
+                    start_date, end_date, created_at, updated_at
+        `;
+
+        const row = await tasksDB.rawQueryRow<{
           id: string;
           title: string;
           description: string | null;
@@ -38,15 +97,7 @@ export const update = api<UpdateTaskRequest, Task>(
           end_date: Date | null;
           created_at: Date;
           updated_at: Date;
-        }>`
-          UPDATE tasks 
-          SET title = ${req.title.trim()}, description = ${req.description?.trim() || null}, category = ${req.category}, priority = ${req.priority}, 
-              status = ${req.status}, progress = ${req.progress}, start_date = ${req.startDate || null}, end_date = ${req.endDate || null}, 
-              updated_at = NOW()
-          WHERE id = ${req.id}
-          RETURNING id, title, description, category, priority, status, progress, 
-                    start_date, end_date, created_at, updated_at
-        `;
+        }>(query, ...updateValues);
 
         if (!row) {
           throw new Error("Failed to update task");
@@ -68,7 +119,7 @@ export const update = api<UpdateTaskRequest, Task>(
         `;
 
         return {
-          id: row.id,
+          id: row.id.toString(),
           title: row.title,
           description: row.description || undefined,
           category: row.category,

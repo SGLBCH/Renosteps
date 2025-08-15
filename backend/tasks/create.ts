@@ -25,8 +25,8 @@ export const create = api<CreateTaskRequest, Task>(
           created_at: Date;
           updated_at: Date;
         }>`
-          INSERT INTO tasks (title, description, category, priority, status, progress, start_date, end_date)
-          VALUES (${req.title.trim()}, ${req.description?.trim() || null}, ${req.category || "other"}, ${req.priority || "medium"}, ${req.status || "not-started"}, ${req.progress || 0}, ${req.startDate || null}, ${req.endDate || null})
+          INSERT INTO tasks (title, description, category, priority, status, progress, start_date, end_date, created_at, updated_at)
+          VALUES (${req.title.trim()}, ${req.description?.trim() || null}, ${req.category || "other"}, ${req.priority || "medium"}, ${req.status || "not-started"}, ${req.progress || 0}, ${req.startDate || null}, ${req.endDate || null}, NOW(), NOW())
           RETURNING id, title, description, category, priority, status, progress, 
                     start_date, end_date, created_at, updated_at
         `;
@@ -36,7 +36,7 @@ export const create = api<CreateTaskRequest, Task>(
         }
 
         return {
-          id: row.id,
+          id: row.id.toString(),
           title: row.title,
           description: row.description || undefined,
           category: row.category,
