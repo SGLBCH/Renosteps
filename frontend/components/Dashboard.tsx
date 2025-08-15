@@ -9,13 +9,13 @@ import backend from '~backend/client';
 import type { Task } from './TaskCardsView';
 
 interface BudgetData {
-  total: number;
-  spent: number;
+  totalBudget: number;
+  totalSpent: number;
   remaining: number;
-  categories: {
+  categoryBreakdown: {
     category: string;
-    allocated: number;
     spent: number;
+    count: number;
   }[];
 }
 
@@ -30,33 +30,32 @@ interface ProjectStats {
 
 function DashboardContent() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Mock budget data - in a real app this would come from an API
-  const budgetData: BudgetData = {
-    total: 50000,
-    spent: 17500,
-    remaining: 32500,
-    categories: [
-      { category: 'Kitchen', allocated: 20000, spent: 8500 },
-      { category: 'Bathroom', allocated: 15000, spent: 6000 },
-      { category: 'Living Room', allocated: 10000, spent: 2500 },
-      { category: 'Bedroom', allocated: 3000, spent: 500 },
-      { category: 'Exterior', allocated: 2000, spent: 0 },
-    ],
-  };
-
-  const loadTasks = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await backend.tasks.list();
-      setTasks(response.tasks);
+      
+      // Load tasks and budget data in parallel
+      const [tasksResponse, budgetResponse] = await Promise.all([
+        backend.tasks.list(),
+        backend.budget.getSummary(),
+      ]);
+      
+      setTasks(tasksResponse.tasks);
+      setBudgetData({
+        totalBudget: budgetResponse.totalBudget,
+        totalSpent: budgetResponse.totalSpent,
+        remaining: budgetResponse.remaining,
+        categoryBreakdown: budgetResponse.categoryBreakdown,
+      });
     } catch (error) {
-      console.error('Error loading tasks:', error);
-      setError('Failed to load tasks');
+      console.error('Error loading dashboard data:', error);
+      setError('Failed to load dashboard data');
       toast({
         title: "Error",
         description: "Failed to load dashboard data. Please try again.",
@@ -68,7 +67,7 @@ function DashboardContent() {
   };
 
   useEffect(() => {
-    loadTasks();
+    loadData();
   }, []);
 
   const formatCurrency = (amount: number) => {
@@ -115,9 +114,11 @@ function DashboardContent() {
     ? Math.round((projectStats.completedTasks / projectStats.totalTasks) * 100)
     : 0;
 
-  const budgetProgress = budgetData.total > 0 
-    ? Math.round((budgetData.spent / budgetData.total) * 100)
+  const budgetProgress = budgetData && budgetData.totalBudget > 0 
+    ? Math.round((budgetData.totalSpent / budgetData.totalBudget) * 100)
     : 0;
+
+  const isOverBudget = budgetData ? budgetData.totalSpent > budgetData.totalBudget : false;
 
   if (loading) {
     return (
@@ -138,7 +139,7 @@ function DashboardContent() {
           <div className="text-center">
             <div className="text-muted-foreground mb-4">{error}</div>
             <button 
-              onClick={loadTasks}
+              onClick={loadData}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
             >
               Try Again
@@ -177,11 +178,21 @@ function DashboardContent() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{budgetProgress}%</div>
+            <div className={`text-2xl font-bold ${isOverBudget ? 'text-destructive' : ''}`}>
+              {budgetProgress}%
+            </div>
             <p className="text-xs text-muted-foreground">
-              {formatCurrency(budgetData.spent)} of {formatCurrency(budgetData.total)}
+              {budgetData ? formatCurrency(budgetData.totalSpent) : '$0'} of {budgetData ? formatCurrency(budgetData.totalBudget) : '$0'}
             </p>
-            <Progress value={budgetProgress} className="mt-2 h-2" />
+            <Progress 
+              value={Math.min(budgetProgress, 100)} 
+              className={`mt-2 h-2 ${isOverBudget ? '[&>div]:bg-destructive' : ''}`} 
+            />
+            {isOverBudget && (
+              <p className="text-xs text-destructive mt-1">
+                Over budget by {budgetData ? formatCurrency(budgetData.totalSpent - budgetData.totalBudget) : '$0'}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -251,50 +262,66 @@ function DashboardContent() {
             <div className="grid grid-cols-3 gap-4 p-4 bg-secondary rounded-lg">
               <div className="text-center">
                 <div className="text-sm text-muted-foreground">Total</div>
-                <div className="font-semibold">{formatCurrency(budgetData.total)}</div>
+                <div className="font-semibold">{budgetData ? formatCurrency(budgetData.totalBudget) : '$0'}</div>
               </div>
               <div className="text-center">
                 <div className="text-sm text-muted-foreground">Spent</div>
-                <div className="font-semibold text-red-600">{formatCurrency(budgetData.spent)}</div>
+                <div className={`font-semibold ${isOverBudget ? 'text-destructive' : 'text-red-600'}`}>
+                  {budgetData ? formatCurrency(budgetData.totalSpent) : '$0'}
+                </div>
               </div>
               <div className="text-center">
                 <div className="text-sm text-muted-foreground">Remaining</div>
-                <div className="font-semibold text-green-600">{formatCurrency(budgetData.remaining)}</div>
+                <div className={`font-semibold ${budgetData && budgetData.remaining >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                  {budgetData ? formatCurrency(budgetData.remaining) : '$0'}
+                </div>
               </div>
             </div>
 
             {/* Category Breakdown */}
-            <div className="space-y-3">
-              <h4 className="font-medium">By Category</h4>
-              {budgetData.categories.map((category) => {
-                const categoryProgress = category.allocated > 0 
-                  ? (category.spent / category.allocated) * 100 
-                  : 0;
-                const remaining = category.allocated - category.spent;
-                
-                return (
-                  <div key={category.category} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{category.category}</span>
-                      <div className="text-right">
-                        <div className="text-sm font-medium">
-                          {formatCurrency(category.spent)} / {formatCurrency(category.allocated)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatCurrency(remaining)} remaining
+            {budgetData && budgetData.categoryBreakdown.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="font-medium">By Category</h4>
+                {budgetData.categoryBreakdown.slice(0, 5).map((category) => {
+                  const categoryProgress = budgetData.totalBudget > 0 
+                    ? (category.spent / budgetData.totalBudget) * 100 
+                    : 0;
+                  
+                  return (
+                    <div key={category.category} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">{category.category}</span>
+                        <div className="text-right">
+                          <div className="text-sm font-medium">
+                            {formatCurrency(category.spent)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {category.count} expense{category.count !== 1 ? 's' : ''}
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <Progress value={categoryProgress} className="flex-1 h-2" />
+                        <span className="text-xs text-muted-foreground w-12 text-right">
+                          {Math.round(categoryProgress)}%
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Progress value={categoryProgress} className="flex-1 h-2" />
-                      <span className="text-xs text-muted-foreground w-12 text-right">
-                        {Math.round(categoryProgress)}%
-                      </span>
-                    </div>
+                  );
+                })}
+                {budgetData.categoryBreakdown.length > 5 && (
+                  <div className="text-sm text-muted-foreground">
+                    +{budgetData.categoryBreakdown.length - 5} more categories
                   </div>
-                );
-              })}
-            </div>
+                )}
+              </div>
+            )}
+
+            {(!budgetData || budgetData.categoryBreakdown.length === 0) && (
+              <div className="text-center py-4 text-muted-foreground">
+                No expenses recorded yet
+              </div>
+            )}
           </CardContent>
         </Card>
 

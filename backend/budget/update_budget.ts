@@ -1,0 +1,45 @@
+import { api } from "encore.dev/api";
+import { budgetDB } from "./db";
+import type { UpdateBudgetRequest, BudgetSettings } from "./types";
+
+// Updates the total budget amount.
+export const updateBudget = api<UpdateBudgetRequest, BudgetSettings>(
+  { expose: true, method: "PUT", path: "/budget" },
+  async (req) => {
+    const now = new Date();
+
+    // Check if budget settings exist
+    const existing = await budgetDB.queryRow`
+      SELECT id FROM budget_settings ORDER BY id DESC LIMIT 1
+    `;
+
+    if (existing) {
+      // Update existing
+      await budgetDB.exec`
+        UPDATE budget_settings 
+        SET total_budget = ${req.totalBudget}, updated_at = ${now}
+        WHERE id = ${existing.id}
+      `;
+    } else {
+      // Create new
+      await budgetDB.exec`
+        INSERT INTO budget_settings (total_budget, created_at, updated_at)
+        VALUES (${req.totalBudget}, ${now}, ${now})
+      `;
+    }
+
+    const updated = await budgetDB.queryRow<BudgetSettings>`
+      SELECT 
+        id, total_budget as "totalBudget",
+        created_at as "createdAt", updated_at as "updatedAt"
+      FROM budget_settings 
+      ORDER BY id DESC LIMIT 1
+    `;
+
+    if (!updated) {
+      throw new Error("Failed to update budget");
+    }
+
+    return updated;
+  }
+);

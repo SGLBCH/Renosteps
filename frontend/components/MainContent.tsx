@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskCardsView } from './TaskCardsView';
 import { GanttChartView } from './GanttChartView';
 import { Dashboard } from './Dashboard';
+import { Budget } from './Budget';
 import { ErrorBoundary } from './ErrorBoundary';
 
 export function MainContent() {
@@ -17,10 +18,11 @@ export function MainContent() {
       <div className="flex-1 p-6 overflow-hidden">
         <ErrorBoundary>
           <Tabs defaultValue="dashboard" className="h-full flex flex-col">
-            <TabsList className="grid w-fit grid-cols-3 flex-shrink-0">
+            <TabsList className="grid w-fit grid-cols-4 flex-shrink-0">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="task-cards">Task Cards</TabsTrigger>
               <TabsTrigger value="gantt-chart">Gantt Chart</TabsTrigger>
+              <TabsTrigger value="budget">Budget</TabsTrigger>
             </TabsList>
             
             <TabsContent value="dashboard" className="mt-6 flex-1 overflow-hidden">
@@ -33,6 +35,10 @@ export function MainContent() {
             
             <TabsContent value="gantt-chart" className="mt-6 flex-1 overflow-hidden">
               <GanttChartView />
+            </TabsContent>
+            
+            <TabsContent value="budget" className="mt-6 flex-1 overflow-hidden">
+              <Budget />
             </TabsContent>
           </Tabs>
         </ErrorBoundary>
