@@ -110,26 +110,30 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
     try {
       console.log('Starting file upload for:', file.name, 'Size:', file.size, 'Type:', file.type);
       
-      // Convert file to array buffer
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = new Uint8Array(arrayBuffer);
-      
-      console.log('File converted to buffer, length:', buffer.length);
-      
-      // Upload file
+      // Get signed upload URL from backend
       const uploadResult = await backend.inspiration.uploadFile({
         filename: file.name,
         contentType: file.type,
-        data: Array.from(buffer),
       });
       
-      console.log('Upload successful, URL:', uploadResult.url);
+      console.log('Got upload URL, uploading file...');
       
-      if (!uploadResult.url) {
-        throw new Error('Upload succeeded but no URL was returned');
+      // Upload file directly to object storage using the signed URL
+      const uploadResponse = await fetch(uploadResult.uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
       }
       
-      return uploadResult.url;
+      console.log('File uploaded successfully, URL:', uploadResult.fileUrl);
+      
+      return uploadResult.fileUrl;
     } catch (error) {
       console.error('File upload failed:', error);
       

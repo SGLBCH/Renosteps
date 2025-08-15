@@ -8,21 +8,21 @@ const inspirationBucket = new Bucket("inspiration-files", {
 export interface UploadFileRequest {
   filename: string;
   contentType: string;
-  data: number[];
 }
 
 export interface UploadFileResponse {
-  url: string;
+  uploadUrl: string;
+  fileUrl: string;
 }
 
-// Uploads a file to object storage and returns the public URL.
+// Generates a signed upload URL for direct file upload to object storage.
 export const uploadFile = api<UploadFileRequest, UploadFileResponse>(
   { expose: true, method: "POST", path: "/inspiration/upload" },
   async (req) => {
     try {
       // Validate input
-      if (!req.filename || !req.contentType || !req.data) {
-        throw APIError.invalidArgument("Missing required fields: filename, contentType, and data are required");
+      if (!req.filename || !req.contentType) {
+        throw APIError.invalidArgument("Missing required fields: filename and contentType are required");
       }
 
       if (!req.filename.trim()) {
@@ -31,16 +31,6 @@ export const uploadFile = api<UploadFileRequest, UploadFileResponse>(
 
       if (!req.contentType.startsWith('image/')) {
         throw APIError.invalidArgument("Only image files are allowed");
-      }
-
-      if (!Array.isArray(req.data) || req.data.length === 0) {
-        throw APIError.invalidArgument("File data is required and must be a non-empty array");
-      }
-
-      // Check file size (10MB limit)
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (req.data.length > maxSize) {
-        throw APIError.invalidArgument(`File size exceeds maximum limit of ${maxSize / 1024 / 1024}MB`);
       }
 
       // Sanitize filename
@@ -52,51 +42,22 @@ export const uploadFile = api<UploadFileRequest, UploadFileResponse>(
       const extension = sanitizedFilename.split('.').pop() || 'jpg';
       const uniqueFilename = `${timestamp}-${randomSuffix}.${extension}`;
 
-      // Convert number array back to Buffer
-      let buffer: Buffer;
-      try {
-        buffer = Buffer.from(req.data);
-      } catch (error) {
-        console.error('Error converting data to buffer:', error);
-        throw APIError.invalidArgument("Invalid file data format");
-      }
+      console.log(`Generating upload URL for: ${uniqueFilename}, type: ${req.contentType}`);
 
-      // Validate buffer size matches data length
-      if (buffer.length !== req.data.length) {
-        throw APIError.invalidArgument("File data corruption detected");
-      }
+      // Generate signed upload URL
+      const { url: uploadUrl } = await inspirationBucket.signedUploadUrl(uniqueFilename, {
+        ttl: 3600, // 1 hour
+      });
 
-      console.log(`Uploading file: ${uniqueFilename}, size: ${buffer.length} bytes, type: ${req.contentType}`);
+      // Generate the final public URL
+      const fileUrl = inspirationBucket.publicUrl(uniqueFilename);
 
-      // Upload to bucket
-      try {
-        await inspirationBucket.upload(uniqueFilename, buffer, {
-          contentType: req.contentType,
-        });
-      } catch (error) {
-        console.error('Error uploading to bucket:', error);
-        throw APIError.internal("Failed to upload file to storage", error);
-      }
-
-      // Get public URL
-      let url: string;
-      try {
-        url = inspirationBucket.publicUrl(uniqueFilename);
-      } catch (error) {
-        console.error('Error getting public URL:', error);
-        throw APIError.internal("Failed to generate file URL", error);
-      }
-
-      if (!url) {
-        throw APIError.internal("Failed to generate public URL for uploaded file");
-      }
-
-      console.log(`File uploaded successfully: ${uniqueFilename} -> ${url}`);
+      console.log(`Upload URL generated successfully: ${uniqueFilename} -> ${fileUrl}`);
       
-      return { url };
+      return { uploadUrl, fileUrl };
     } catch (error) {
       // Log the error for debugging
-      console.error('Upload file error:', error);
+      console.error('Upload URL generation error:', error);
       
       // Re-throw APIErrors as-is
       if (error instanceof APIError) {
@@ -104,7 +65,7 @@ export const uploadFile = api<UploadFileRequest, UploadFileResponse>(
       }
       
       // Convert other errors to internal server errors
-      throw APIError.internal("An unexpected error occurred during file upload", error);
+      throw APIError.internal("An unexpected error occurred during upload URL generation", error);
     }
   }
 );
