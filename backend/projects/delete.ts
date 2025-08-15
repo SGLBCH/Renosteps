@@ -29,31 +29,30 @@ export const deleteProject = api<DeleteProjectParams, void>(
       }
 
       // Delete associated data in the correct order (respecting foreign key constraints)
+      // Use the string version of the project ID for the related tables since they store project_id as TEXT
       
-      // 1. Delete subtasks first (they reference tasks)
+      // 1. Delete subtasks first (they reference tasks and have project_id)
       await tx.exec`
         DELETE FROM subtasks 
-        WHERE project_id = ${id} OR task_id IN (
-          SELECT id FROM tasks WHERE project_id = ${id}
-        )
+        WHERE project_id = ${id}
       `;
 
-      // 2. Delete tasks
+      // 2. Delete tasks (they have project_id as TEXT)
       await tx.exec`
         DELETE FROM tasks WHERE project_id = ${id}
       `;
 
-      // 3. Delete budget expenses
+      // 3. Delete budget expenses (they have project_id as TEXT)
       await tx.exec`
         DELETE FROM budget_expenses WHERE project_id = ${id}
       `;
 
-      // 4. Delete budget settings
+      // 4. Delete budget settings (they have project_id as TEXT)
       await tx.exec`
         DELETE FROM budget_settings WHERE project_id = ${id}
       `;
 
-      // 5. Finally delete the project itself
+      // 5. Finally delete the project itself (using numeric ID)
       await tx.exec`
         DELETE FROM projects WHERE id = ${projectId}
       `;

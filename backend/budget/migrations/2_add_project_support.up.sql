@@ -9,3 +9,6 @@ CREATE INDEX idx_budget_expenses_project_id ON budget_expenses(project_id);
 -- Update existing records to have a default project_id
 UPDATE budget_settings SET project_id = '1' WHERE project_id IS NULL;
 UPDATE budget_expenses SET project_id = '1' WHERE project_id IS NULL;
+
+-- Note: We don't add foreign key constraints to project_id because the projects table uses BIGSERIAL (numeric)
+-- while the project_id columns are TEXT for flexibility in handling different ID formats
