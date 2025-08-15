@@ -16,15 +16,21 @@ export interface BudgetSummary {
 }
 
 export function useProjectBudget() {
-  const { currentProject } = useProject();
+  const { currentProject, loading: projectLoading } = useProject();
   const [budgetSummary, setBudgetSummary] = useState<BudgetSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBudgetSummary = useCallback(async () => {
+    // Don't try to load budget if projects are still loading
+    if (projectLoading) {
+      return;
+    }
+
     if (!currentProject) {
       setBudgetSummary(null);
       setLoading(false);
+      setError(null);
       return;
     }
 
@@ -51,19 +57,23 @@ export function useProjectBudget() {
     } finally {
       setLoading(false);
     }
-  }, [currentProject]);
+  }, [currentProject, projectLoading]);
 
   useEffect(() => {
-    fetchBudgetSummary();
-  }, [fetchBudgetSummary]);
+    if (!projectLoading) {
+      fetchBudgetSummary();
+    }
+  }, [fetchBudgetSummary, projectLoading]);
 
   const refreshBudget = useCallback(() => {
-    fetchBudgetSummary();
-  }, [fetchBudgetSummary]);
+    if (!projectLoading) {
+      fetchBudgetSummary();
+    }
+  }, [fetchBudgetSummary, projectLoading]);
 
   return {
     budgetSummary,
-    loading,
+    loading: loading || projectLoading,
     error,
     refreshBudget,
     currentProject

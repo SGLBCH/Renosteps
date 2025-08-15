@@ -56,24 +56,40 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   useEffect(() => {
     const loadProjects = async () => {
       try {
+        setLoading(true);
         const response = await backend.projects.list();
         const convertedProjects = response.projects.map(convertBackendProject);
         setProjects(convertedProjects);
 
-        // Set current project from localStorage or first project
-        const savedProjectId = localStorage.getItem('currentProjectId');
-        if (savedProjectId) {
-          const savedProject = convertedProjects.find(p => p.id === savedProjectId);
-          if (savedProject) {
-            setCurrentProjectState(savedProject);
-          } else if (convertedProjects.length > 0) {
-            setCurrentProjectState(convertedProjects[0]);
+        // Always ensure we have a current project selected
+        if (convertedProjects.length > 0) {
+          // Try to get saved project from localStorage
+          const savedProjectId = localStorage.getItem('currentProjectId');
+          let projectToSelect: Project | null = null;
+
+          if (savedProjectId) {
+            // Find the saved project
+            projectToSelect = convertedProjects.find(p => p.id === savedProjectId) || null;
           }
-        } else if (convertedProjects.length > 0) {
-          setCurrentProjectState(convertedProjects[0]);
+
+          // If no saved project found or saved project doesn't exist, select the first one
+          if (!projectToSelect) {
+            projectToSelect = convertedProjects[0];
+          }
+
+          // Set the current project
+          setCurrentProjectState(projectToSelect);
+          localStorage.setItem('currentProjectId', projectToSelect.id);
+        } else {
+          // No projects available, clear current project and localStorage
+          setCurrentProjectState(null);
+          localStorage.removeItem('currentProjectId');
         }
       } catch (error) {
         console.error('Failed to load projects:', error);
+        // On error, still try to set loading to false and clear current project
+        setCurrentProjectState(null);
+        localStorage.removeItem('currentProjectId');
       } finally {
         setLoading(false);
       }
@@ -88,7 +104,17 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   };
 
   const addProject = (project: Project) => {
-    setProjects(prev => [project, ...prev]);
+    setProjects(prev => {
+      const newProjects = [project, ...prev];
+      
+      // If this is the first project, automatically select it
+      if (prev.length === 0) {
+        setCurrentProjectState(project);
+        localStorage.setItem('currentProjectId', project.id);
+      }
+      
+      return newProjects;
+    });
   };
 
   const updateProject = (projectId: string, updates: Partial<Project>) => {

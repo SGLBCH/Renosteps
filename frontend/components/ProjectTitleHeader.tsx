@@ -9,7 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import backend from '~backend/client';
 
 export function ProjectTitleHeader() {
-  const { currentProject, projects, setCurrentProject, updateProject, addProject } = useProject();
+  const { currentProject, projects, setCurrentProject, updateProject, addProject, loading } = useProject();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(currentProject?.name || '');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -78,14 +78,101 @@ export function ProjectTitleHeader() {
     }
   };
 
-  if (!currentProject) {
+  // Show loading state
+  if (loading) {
     return (
       <div className="flex items-center gap-3">
-        <div className="text-muted-foreground">Loading project...</div>
+        <div className="animate-pulse">
+          <div className="h-9 bg-muted rounded w-48"></div>
+        </div>
+        <div className="ml-4">
+          <div className="animate-pulse">
+            <div className="h-5 bg-muted rounded w-32"></div>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // Show create project prompt if no projects exist
+  if (!currentProject && projects.length === 0) {
+    return (
+      <>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            <h1 className="text-3xl font-semibold tracking-tight text-muted-foreground">No Projects</h1>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleAddNewProject}
+              className="ml-4"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create First Project
+            </Button>
+          </div>
+        </div>
+
+        <CreateProjectDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onProjectCreated={handleProjectCreated}
+        />
+      </>
+    );
+  }
+
+  // Show error state if we should have a project but don't
+  if (!currentProject) {
+    return (
+      <>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            <h1 className="text-3xl font-semibold tracking-tight text-muted-foreground">Select Project</h1>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-4"
+                >
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                  Choose Project
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-80">
+                {projects.map((project) => (
+                  <DropdownMenuItem
+                    key={project.id}
+                    onClick={() => handleProjectSelect(project)}
+                    className="flex flex-col items-start p-3 cursor-pointer"
+                  >
+                    <div className="text-2xl font-semibold tracking-tight">{project.name}</div>
+                    <div className="text-sm text-muted-foreground">{project.dateRange}</div>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  onClick={handleAddNewProject}
+                  className="flex items-center gap-2 p-3 cursor-pointer border-t"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="text-2xl font-semibold tracking-tight">Add new project</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <CreateProjectDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onProjectCreated={handleProjectCreated}
+        />
+      </>
+    );
+  }
+
+  // Normal state with current project
   return (
     <>
       <div className="flex items-center gap-3">
@@ -121,7 +208,9 @@ export function ProjectTitleHeader() {
                     <DropdownMenuItem
                       key={project.id}
                       onClick={() => handleProjectSelect(project)}
-                      className="flex flex-col items-start p-3 cursor-pointer"
+                      className={`flex flex-col items-start p-3 cursor-pointer ${
+                        currentProject.id === project.id ? 'bg-accent' : ''
+                      }`}
                     >
                       <div className="text-2xl font-semibold tracking-tight">{project.name}</div>
                       <div className="text-sm text-muted-foreground">{project.dateRange}</div>

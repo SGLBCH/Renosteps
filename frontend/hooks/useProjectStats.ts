@@ -14,7 +14,7 @@ export interface ProjectStats {
 }
 
 export function useProjectStats() {
-  const { currentProject } = useProject();
+  const { currentProject, loading: projectLoading } = useProject();
   const { tasks, loading: tasksLoading, error: tasksError, loadTasks } = useProjectTasks();
 
   const calculateProjectStats = useCallback((): ProjectStats => {
@@ -68,7 +68,7 @@ export function useProjectStats() {
 
   return {
     projectStats,
-    loading: tasksLoading,
+    loading: tasksLoading || projectLoading,
     error: tasksError,
     refetch: loadTasks,
     currentProject
