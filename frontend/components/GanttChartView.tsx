@@ -80,7 +80,7 @@ function GanttChartContent() {
   );
 
   const generateDateHeaders = useMemo(() => {
-    const dates = [];
+    const dates: { date: Date; label: string; key: string }[] = [];
     const startDate = new Date(currentDate);
     
     if (viewMode === 'day') {
@@ -816,7 +816,7 @@ function GanttChartContent() {
                           }}
                         >
                           {/* Task Info - Sticky Left Column */}
-                          <div className="p-3 border-r border-border bg-card sticky left-0 z-10 shadow-sm">
+                          <div className="p-3 border-r border-border bg-card sticky left-0 z-30 shadow-sm">
                             <div className="font-medium text-sm truncate">{task.title}</div>
                             <div className="text-xs text-muted-foreground capitalize truncate">{task.category}</div>
                             <div className="text-xs text-muted-foreground mt-1">
