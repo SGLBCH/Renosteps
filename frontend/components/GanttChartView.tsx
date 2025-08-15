@@ -112,11 +112,11 @@ function GanttChartContent() {
   const handlePrevious = () => {
     const newDate = new Date(currentDate);
     if (viewMode === 'day') {
-      newDate.setDate(newDate.getDate() - 14);
+      newDate.setDate(newDate.getDate() - 1);
     } else if (viewMode === 'week') {
-      newDate.setDate(newDate.getDate() - 56); // 8 weeks
+      newDate.setDate(newDate.getDate() - 7); // Move one week at a time
     } else if (viewMode === 'month') {
-      newDate.setMonth(newDate.getMonth() - 6);
+      newDate.setMonth(newDate.getMonth() - 1);
     }
     setCurrentDate(newDate);
   };
@@ -124,11 +124,11 @@ function GanttChartContent() {
   const handleNext = () => {
     const newDate = new Date(currentDate);
     if (viewMode === 'day') {
-      newDate.setDate(newDate.getDate() + 14);
+      newDate.setDate(newDate.getDate() + 1);
     } else if (viewMode === 'week') {
-      newDate.setDate(newDate.getDate() + 56); // 8 weeks
+      newDate.setDate(newDate.getDate() + 7); // Move one week at a time
     } else if (viewMode === 'month') {
-      newDate.setMonth(newDate.getMonth() + 6);
+      newDate.setMonth(newDate.getMonth() + 1);
     }
     setCurrentDate(newDate);
   };
