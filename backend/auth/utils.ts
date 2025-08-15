@@ -5,17 +5,41 @@ const jwtSecret = secret("JWTSecret");
 
 // Hash a password using bcrypt
 export async function hashPassword(password: string): Promise<string> {
-  // Import bcrypt dynamically to avoid issues with bundling
-  const bcrypt = await import('bcrypt');
-  const saltRounds = 12;
-  return bcrypt.hash(password, saltRounds);
+  try {
+    // Import bcrypt dynamically to avoid issues with bundling
+    const bcrypt = await import('bcrypt');
+    const saltRounds = 12;
+    
+    console.log('Hashing password with salt rounds:', saltRounds);
+    const hash = await bcrypt.hash(password, saltRounds);
+    
+    if (!hash) {
+      throw new Error('Bcrypt returned empty hash');
+    }
+    
+    console.log('Password hashed successfully');
+    return hash;
+  } catch (error) {
+    console.error('Password hashing error:', error);
+    
+    if (error instanceof Error) {
+      throw new Error(`Password hashing failed: ${error.message}`);
+    }
+    
+    throw new Error('Password hashing failed');
+  }
 }
 
 // Verify a password against its hash
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   try {
     const bcrypt = await import('bcrypt');
-    return bcrypt.compare(password, hash);
+    
+    console.log('Verifying password against hash');
+    const isValid = await bcrypt.compare(password, hash);
+    
+    console.log('Password verification result:', isValid);
+    return isValid;
   } catch (error) {
     console.error('Password verification error:', error);
     return false;
@@ -24,5 +48,21 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 // Get the JWT secret
 export function getJWTSecret(): string {
-  return jwtSecret();
+  try {
+    const secret = jwtSecret();
+    
+    if (!secret || secret.trim() === '') {
+      console.error('JWT secret is empty or not configured');
+      throw new Error('JWT secret is not configured');
+    }
+    
+    if (secret.length < 32) {
+      console.warn('JWT secret is shorter than recommended (32 characters)');
+    }
+    
+    return secret;
+  } catch (error) {
+    console.error('Error getting JWT secret:', error);
+    throw new Error('Failed to retrieve JWT secret');
+  }
 }

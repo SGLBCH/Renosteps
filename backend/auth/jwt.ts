@@ -14,6 +14,12 @@ export async function generateToken(userId: number, email: string): Promise<stri
     // Import jsonwebtoken dynamically
     const jwt = await import('jsonwebtoken');
     
+    const secret = getJWTSecret();
+    if (!secret) {
+      console.error('JWT secret is not configured');
+      throw APIError.internal("JWT secret is not configured");
+    }
+
     const payload = {
       userId,
       email,
@@ -21,9 +27,36 @@ export async function generateToken(userId: number, email: string): Promise<stri
       exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
     };
 
-    return jwt.sign(payload, getJWTSecret());
+    console.log('Generating JWT token for user:', userId, 'with secret length:', secret.length);
+    
+    const token = jwt.sign(payload, secret, { algorithm: 'HS256' });
+    
+    if (!token) {
+      console.error('JWT sign returned empty token');
+      throw APIError.internal("Failed to sign JWT token");
+    }
+
+    console.log('JWT token generated successfully');
+    return token;
   } catch (error) {
     console.error('Token generation error:', error);
+    
+    if (error instanceof APIError) {
+      throw error;
+    }
+    
+    // Handle specific JWT errors
+    if (error instanceof Error) {
+      if (error.message.includes('secretOrPrivateKey')) {
+        throw APIError.internal("JWT secret configuration error");
+      } else if (error.message.includes('payload')) {
+        throw APIError.internal("Invalid token payload");
+      } else {
+        console.error('Unexpected JWT error:', error.message);
+        throw APIError.internal(`JWT generation failed: ${error.message}`);
+      }
+    }
+    
     throw APIError.internal("Failed to generate authentication token");
   }
 }
@@ -33,20 +66,52 @@ export async function verifyToken(token: string): Promise<JWTPayload> {
   try {
     const jwt = await import('jsonwebtoken');
     
-    const decoded = jwt.verify(token, getJWTSecret()) as JWTPayload;
+    const secret = getJWTSecret();
+    if (!secret) {
+      console.error('JWT secret is not configured for verification');
+      throw APIError.unauthenticated("JWT secret is not configured");
+    }
+
+    console.log('Verifying JWT token with secret length:', secret.length);
     
-    // Check if token is expired
-    if (decoded.exp < Math.floor(Date.now() / 1000)) {
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as JWTPayload;
+    
+    if (!decoded || typeof decoded !== 'object') {
+      console.error('JWT verify returned invalid payload');
+      throw APIError.unauthenticated("Invalid token payload");
+    }
+    
+    // Check if token is expired (additional check)
+    if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
+      console.error('Token has expired:', decoded.exp, 'vs', Math.floor(Date.now() / 1000));
       throw APIError.unauthenticated("Token has expired");
     }
     
+    console.log('JWT token verified successfully for user:', decoded.userId);
     return decoded;
   } catch (error) {
+    console.error('Token verification error:', error);
+    
     if (error instanceof APIError) {
       throw error;
     }
     
-    console.error('Token verification error:', error);
+    // Handle specific JWT errors
+    if (error instanceof Error) {
+      if (error.message.includes('jwt expired')) {
+        throw APIError.unauthenticated("Token has expired");
+      } else if (error.message.includes('jwt malformed')) {
+        throw APIError.unauthenticated("Malformed token");
+      } else if (error.message.includes('invalid signature')) {
+        throw APIError.unauthenticated("Invalid token signature");
+      } else if (error.message.includes('jwt not active')) {
+        throw APIError.unauthenticated("Token not yet active");
+      } else {
+        console.error('Unexpected JWT verification error:', error.message);
+        throw APIError.unauthenticated(`Token verification failed: ${error.message}`);
+      }
+    }
+    
     throw APIError.unauthenticated("Invalid authentication token");
   }
 }
@@ -62,5 +127,10 @@ export function extractTokenFromHeader(authHeader?: string): string {
     throw APIError.unauthenticated("Invalid authorization header format");
   }
 
-  return parts[1];
+  const token = parts[1];
+  if (!token || token.trim() === '') {
+    throw APIError.unauthenticated("Empty token in authorization header");
+  }
+
+  return token;
 }
