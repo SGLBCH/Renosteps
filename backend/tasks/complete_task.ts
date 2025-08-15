@@ -33,6 +33,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
           progress: number;
           start_date: Date | null;
           end_date: Date | null;
+          project_id: string | null;
           created_at: Date;
           updated_at: Date;
         }>`
@@ -40,7 +41,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
           SET status = 'completed', progress = 100, updated_at = NOW()
           WHERE id = ${taskId}
           RETURNING id, title, description, category, priority, status, progress, 
-                    start_date, end_date, created_at, updated_at
+                    start_date, end_date, project_id, created_at, updated_at
         `;
 
         if (!row) {
@@ -53,10 +54,11 @@ export const completeTask = api<CompleteTaskRequest, Task>(
           task_id: number;
           title: string;
           completed: boolean;
+          project_id: string | null;
           created_at: Date;
           updated_at: Date;
         }>`
-          SELECT id, task_id, title, completed, created_at, updated_at
+          SELECT id, task_id, title, completed, project_id, created_at, updated_at
           FROM subtasks 
           WHERE task_id = ${taskId}
           ORDER BY created_at ASC
@@ -72,6 +74,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
           progress: row.progress,
           startDate: row.start_date || undefined,
           endDate: row.end_date || undefined,
+          projectId: row.project_id || undefined,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           subtasks: subtasks.map(subtask => ({
@@ -79,6 +82,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
             taskId: subtask.task_id.toString(),
             title: subtask.title,
             completed: subtask.completed,
+            projectId: subtask.project_id || undefined,
             createdAt: subtask.created_at,
             updatedAt: subtask.updated_at,
           })),

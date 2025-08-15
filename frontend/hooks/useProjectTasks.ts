@@ -34,29 +34,13 @@ export function useProjectTasks() {
         setTimeout(() => reject(new Error('Request timeout')), 15000)
       );
       
-      // In a real app, you would filter tasks by project ID
-      // For now, we'll simulate project-specific tasks by using the project ID as a filter
+      // Pass the project ID to filter tasks by project
       const response = await Promise.race([
-        backend.tasks.list(),
+        backend.tasks.list({ projectId: String(currentProject.id) }),
         timeoutPromise
       ]) as { tasks: Task[] };
       
-      // Simulate project-specific filtering
-      // In a real app, the backend would handle this filtering
-      const projectTasks = response.tasks.filter(task => {
-        // For demo purposes, we'll show different tasks for different projects
-        // In reality, tasks would have a projectId field
-        const taskProjectMapping: Record<string, string[]> = {
-          '1': response.tasks.slice(0, Math.ceil(response.tasks.length * 0.6)).map(t => t.id),
-          '2': response.tasks.slice(Math.ceil(response.tasks.length * 0.3)).map(t => t.id),
-          '3': response.tasks.slice(0, Math.ceil(response.tasks.length * 0.4)).map(t => t.id),
-        };
-        
-        const projectTaskIds = taskProjectMapping[currentProject.id] || [];
-        return projectTaskIds.includes(task.id);
-      });
-      
-      setTasks(projectTasks || []);
+      setTasks(response.tasks || []);
       setRetryCount(0); // Reset retry count on success
     } catch (error) {
       console.error('Error loading tasks:', error);

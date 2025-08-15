@@ -6,6 +6,7 @@ export interface Subtask {
   taskId: string;
   title: string;
   completed: boolean;
+  projectId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,6 +21,7 @@ export interface Task {
   progress: number;
   startDate?: Date;
   endDate?: Date;
+  projectId?: string;
   createdAt: Date;
   updatedAt: Date;
   subtasks?: Subtask[];
@@ -34,6 +36,7 @@ export interface CreateTaskRequest {
   progress: number;
   startDate?: Date;
   endDate?: Date;
+  projectId?: string;
 }
 
 export interface UpdateTaskRequest {
@@ -46,17 +49,24 @@ export interface UpdateTaskRequest {
   progress?: number;
   startDate?: Date;
   endDate?: Date;
+  projectId?: string;
 }
 
 export interface CreateSubtaskRequest {
   taskId: string;
   title: string;
+  projectId?: string;
 }
 
 export interface UpdateSubtaskRequest {
   id: string;
   title?: string;
   completed?: boolean;
+  projectId?: string;
+}
+
+export interface ListTasksRequest {
+  projectId?: string;
 }
 
 export interface ListTasksResponse {

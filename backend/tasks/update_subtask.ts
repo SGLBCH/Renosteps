@@ -36,6 +36,10 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
         updateFields.push("completed = $" + (updateValues.length + 1));
         updateValues.push(updates.completed);
       }
+      if (updates.projectId !== undefined) {
+        updateFields.push("project_id = $" + (updateValues.length + 1));
+        updateValues.push(String(updates.projectId));
+      }
 
       updateFields.push("updated_at = NOW()");
       updateValues.push(subtaskId); // Use the converted number ID
@@ -53,11 +57,12 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
         task_id: number;
         title: string;
         completed: boolean;
+        project_id: string | null;
         created_at: Date;
         updated_at: Date;
       }>`
         SELECT 
-          id, task_id, title, completed, created_at, updated_at
+          id, task_id, title, completed, project_id, created_at, updated_at
         FROM subtasks 
         WHERE id = ${subtaskId}
       `;
@@ -71,6 +76,7 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
         taskId: updatedSubtask.task_id.toString(),
         title: updatedSubtask.title,
         completed: updatedSubtask.completed,
+        projectId: updatedSubtask.project_id || undefined,
         createdAt: updatedSubtask.created_at,
         updatedAt: updatedSubtask.updated_at,
       };

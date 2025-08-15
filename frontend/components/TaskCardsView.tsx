@@ -16,6 +16,7 @@ export interface Subtask {
   taskId: string;
   title: string;
   completed: boolean;
+  projectId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +31,7 @@ export interface Task {
   status: TaskStatus;
   startDate?: Date;
   endDate?: Date;
+  projectId?: string;
   createdAt: Date;
   updatedAt: Date;
   subtasks?: Subtask[];
@@ -98,10 +100,18 @@ function TaskCardsContent() {
   }, [setTasks]);
 
   const addTaskOptimistically = useCallback((task: Task) => {
-    setTasks(prevTasks => [task, ...prevTasks]);
-  }, [setTasks]);
+    // Only add the task if it belongs to the current project
+    if (currentProject && task.projectId === String(currentProject.id)) {
+      setTasks(prevTasks => [task, ...prevTasks]);
+    }
+  }, [setTasks, currentProject]);
 
   const handleRetry = useCallback(() => {
+    loadTasks();
+  }, [loadTasks]);
+
+  const handleTaskCreated = useCallback((newTask: Task) => {
+    // Refresh the task list to ensure we have the latest data
     loadTasks();
   }, [loadTasks]);
 
@@ -130,7 +140,7 @@ function TaskCardsContent() {
         <div className="flex justify-between items-center flex-shrink-0">
           <h2 className="text-2xl font-semibold">Tasks</h2>
           <ErrorBoundary>
-            <TaskDialog onTaskSaved={loadTasks} />
+            <TaskDialog onTaskCreated={handleTaskCreated} />
           </ErrorBoundary>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -146,7 +156,7 @@ function TaskCardsContent() {
         <div className="flex justify-between items-center flex-shrink-0">
           <h2 className="text-2xl font-semibold">Tasks</h2>
           <ErrorBoundary>
-            <TaskDialog onTaskSaved={loadTasks} />
+            <TaskDialog onTaskCreated={handleTaskCreated} />
           </ErrorBoundary>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -173,10 +183,7 @@ function TaskCardsContent() {
           <p className="text-sm text-muted-foreground">{currentProject.name}</p>
         </div>
         <ErrorBoundary>
-          <TaskDialog 
-            onTaskSaved={loadTasks}
-            onTaskCreated={addTaskOptimistically}
-          />
+          <TaskDialog onTaskCreated={handleTaskCreated} />
         </ErrorBoundary>
       </div>
 
@@ -202,10 +209,7 @@ function TaskCardsContent() {
               }
             </div>
             <ErrorBoundary>
-              <TaskDialog 
-                onTaskSaved={loadTasks}
-                onTaskCreated={addTaskOptimistically}
-              />
+              <TaskDialog onTaskCreated={handleTaskCreated} />
             </ErrorBoundary>
           </div>
         ) : (

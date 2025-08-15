@@ -1,19 +1,34 @@
 import { api } from "encore.dev/api";
 import { tasksDB, withTimeout } from "./db";
-import { Task, Subtask } from "./types";
+import { Task, Subtask, ListTasksRequest } from "./types";
 
 export interface ListTasksResponse {
   tasks: Task[];
 }
 
-// Lists all tasks with their subtasks.
-export const list = api<void, ListTasksResponse>(
+// Lists all tasks with their subtasks, optionally filtered by project.
+export const list = api<ListTasksRequest, ListTasksResponse>(
   { expose: true, method: "GET", path: "/tasks" },
-  async (): Promise<ListTasksResponse> => {
+  async (req): Promise<ListTasksResponse> => {
     try {
       // Use timeout wrapper for database operations
       const tasks = await withTimeout(async () => {
-        const taskRows = await tasksDB.queryAll<{
+        let taskQuery = `
+          SELECT id, title, description, category, priority, status, progress, 
+                 start_date, end_date, project_id, created_at, updated_at
+          FROM tasks 
+        `;
+        
+        const queryParams: any[] = [];
+        
+        if (req.projectId) {
+          taskQuery += ` WHERE project_id = $1`;
+          queryParams.push(req.projectId);
+        }
+        
+        taskQuery += ` ORDER BY created_at DESC`;
+
+        const taskRows = await tasksDB.rawQueryAll<{
           id: number;
           title: string;
           description: string | null;
@@ -23,14 +38,10 @@ export const list = api<void, ListTasksResponse>(
           progress: number;
           start_date: Date | null;
           end_date: Date | null;
+          project_id: string | null;
           created_at: Date;
           updated_at: Date;
-        }>`
-          SELECT id, title, description, category, priority, status, progress, 
-                 start_date, end_date, created_at, updated_at
-          FROM tasks 
-          ORDER BY created_at DESC
-        `;
+        }>(taskQuery, ...queryParams);
 
         if (taskRows.length === 0) {
           return [];
@@ -39,19 +50,30 @@ export const list = api<void, ListTasksResponse>(
         const taskIds = taskRows.map(row => row.id);
         
         // Get all subtasks for these tasks in one query
-        const subtaskRows = await tasksDB.queryAll<{
+        let subtaskQuery = `
+          SELECT id, task_id, title, completed, project_id, created_at, updated_at
+          FROM subtasks 
+          WHERE task_id = ANY($1)
+        `;
+        
+        const subtaskParams = [taskIds];
+        
+        if (req.projectId) {
+          subtaskQuery += ` AND project_id = $2`;
+          subtaskParams.push(req.projectId);
+        }
+        
+        subtaskQuery += ` ORDER BY created_at ASC`;
+
+        const subtaskRows = await tasksDB.rawQueryAll<{
           id: number;
           task_id: number;
           title: string;
           completed: boolean;
+          project_id: string | null;
           created_at: Date;
           updated_at: Date;
-        }>`
-          SELECT id, task_id, title, completed, created_at, updated_at
-          FROM subtasks 
-          WHERE task_id = ANY(${taskIds})
-          ORDER BY created_at ASC
-        `;
+        }>(subtaskQuery, ...subtaskParams);
 
         // Group subtasks by task_id
         const subtasksByTaskId = new Map<number, Subtask[]>();
@@ -64,6 +86,7 @@ export const list = api<void, ListTasksResponse>(
             taskId: subtask.task_id.toString(),
             title: subtask.title,
             completed: subtask.completed,
+            projectId: subtask.project_id || undefined,
             createdAt: subtask.created_at,
             updatedAt: subtask.updated_at,
           });
@@ -80,6 +103,7 @@ export const list = api<void, ListTasksResponse>(
           progress: row.progress,
           startDate: row.start_date || undefined,
           endDate: row.end_date || undefined,
+          projectId: row.project_id || undefined,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           subtasks: subtasksByTaskId.get(row.id) || [],

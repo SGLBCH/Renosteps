@@ -17,26 +17,33 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
         throw APIError.invalidArgument("Invalid task ID format");
       }
 
-      // Check if parent task exists
-      const parentTask = await tasksDB.queryRow`
-        SELECT id FROM tasks WHERE id = ${taskId}
+      // Check if parent task exists and get its project_id
+      const parentTask = await tasksDB.queryRow<{
+        id: number;
+        project_id: string | null;
+      }>`
+        SELECT id, project_id FROM tasks WHERE id = ${taskId}
       `;
 
       if (!parentTask) {
         throw APIError.notFound("Parent task not found");
       }
 
+      // Use the project_id from the request or inherit from parent task
+      const projectId = req.projectId ? String(req.projectId) : (parentTask.project_id || '1');
+
       const row = await tasksDB.queryRow<{
         id: number;
         task_id: number;
         title: string;
         completed: boolean;
+        project_id: string | null;
         created_at: Date;
         updated_at: Date;
       }>`
-        INSERT INTO subtasks (task_id, title, completed, created_at, updated_at)
-        VALUES (${taskId}, ${req.title.trim()}, false, NOW(), NOW())
-        RETURNING id, task_id, title, completed, created_at, updated_at
+        INSERT INTO subtasks (task_id, title, completed, project_id, created_at, updated_at)
+        VALUES (${taskId}, ${req.title.trim()}, false, ${projectId}, NOW(), NOW())
+        RETURNING id, task_id, title, completed, project_id, created_at, updated_at
       `;
 
       if (!row) {
@@ -48,6 +55,7 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
         taskId: row.task_id.toString(),
         title: row.title,
         completed: row.completed,
+        projectId: row.project_id || undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };

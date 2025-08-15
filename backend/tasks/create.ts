@@ -12,6 +12,9 @@ export const create = api<CreateTaskRequest, Task>(
 
     try {
       const task = await withTimeout(async () => {
+        // Convert projectId to string if it's a number, default to '1' if not specified
+        const projectId = req.projectId ? String(req.projectId) : '1';
+
         const row = await tasksDB.queryRow<{
           id: number;
           title: string;
@@ -22,13 +25,14 @@ export const create = api<CreateTaskRequest, Task>(
           progress: number;
           start_date: Date | null;
           end_date: Date | null;
+          project_id: string | null;
           created_at: Date;
           updated_at: Date;
         }>`
-          INSERT INTO tasks (title, description, category, priority, status, progress, start_date, end_date, created_at, updated_at)
-          VALUES (${req.title.trim()}, ${req.description?.trim() || null}, ${req.category || "other"}, ${req.priority || "medium"}, ${req.status || "not-started"}, ${req.progress || 0}, ${req.startDate || null}, ${req.endDate || null}, NOW(), NOW())
+          INSERT INTO tasks (title, description, category, priority, status, progress, start_date, end_date, project_id, created_at, updated_at)
+          VALUES (${req.title.trim()}, ${req.description?.trim() || null}, ${req.category || "other"}, ${req.priority || "medium"}, ${req.status || "not-started"}, ${req.progress || 0}, ${req.startDate || null}, ${req.endDate || null}, ${projectId}, NOW(), NOW())
           RETURNING id, title, description, category, priority, status, progress, 
-                    start_date, end_date, created_at, updated_at
+                    start_date, end_date, project_id, created_at, updated_at
         `;
 
         if (!row) {
@@ -45,6 +49,7 @@ export const create = api<CreateTaskRequest, Task>(
           progress: row.progress,
           startDate: row.start_date || undefined,
           endDate: row.end_date || undefined,
+          projectId: row.project_id || undefined,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           subtasks: [],

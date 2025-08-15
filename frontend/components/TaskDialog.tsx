@@ -12,6 +12,7 @@ import { CalendarIcon, Plus, Edit } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { useProject } from '../contexts/ProjectContext';
 import backend from '~backend/client';
 import type { Task, TaskPriority, TaskStatus } from './TaskCardsView';
 
@@ -38,6 +39,7 @@ const priorities: TaskPriority[] = ['high', 'medium', 'low'];
 const statuses: TaskStatus[] = ['not-started', 'in-progress', 'completed'];
 
 export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDialogProps) {
+  const { currentProject } = useProject();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -81,6 +83,16 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!currentProject) {
+      toast({
+        title: "Error",
+        description: "No project selected. Please select a project first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -96,6 +108,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
           progress: formData.progress,
           startDate: formData.startDate,
           endDate: formData.endDate,
+          projectId: String(currentProject.id), // Ensure task stays in current project
         });
         
         toast({
@@ -107,7 +120,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
           onTaskSaved(response);
         }
       } else {
-        // Create new task
+        // Create new task with current project ID
         const response = await backend.tasks.create({
           title: formData.title,
           description: formData.description || undefined,
@@ -117,6 +130,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
           progress: formData.progress,
           startDate: formData.startDate,
           endDate: formData.endDate,
+          projectId: String(currentProject.id), // Associate with current project
         });
         
         toast({
@@ -339,6 +353,15 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
             </div>
           </div>
 
+          {/* Project Info */}
+          {currentProject && (
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="text-sm text-muted-foreground">
+                This task will be created in: <span className="font-medium text-foreground">{currentProject.name}</span>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
             <Button 
@@ -351,7 +374,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || !formData.title.trim()}
+              disabled={loading || !formData.title.trim() || !currentProject}
             >
               {loading ? (
                 <>

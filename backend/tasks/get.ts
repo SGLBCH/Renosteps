@@ -23,12 +23,13 @@ export const get = api<GetTaskParams, Task>(
         progress: number;
         start_date: Date | null;
         end_date: Date | null;
+        project_id: string | null;
         created_at: Date;
         updated_at: Date;
       }>`
         SELECT 
           id, title, description, category, priority, status, progress,
-          start_date, end_date, created_at, updated_at
+          start_date, end_date, project_id, created_at, updated_at
         FROM tasks 
         WHERE id = ${taskId}
       `;
@@ -44,11 +45,12 @@ export const get = api<GetTaskParams, Task>(
         task_id: number;
         title: string;
         completed: boolean;
+        project_id: string | null;
         created_at: Date;
         updated_at: Date;
       }>`
         SELECT 
-          id, task_id, title, completed, created_at, updated_at
+          id, task_id, title, completed, project_id, created_at, updated_at
         FROM subtasks 
         WHERE task_id = ${taskId}
         ORDER BY created_at ASC
@@ -60,6 +62,7 @@ export const get = api<GetTaskParams, Task>(
           taskId: subtaskRow.task_id.toString(),
           title: subtaskRow.title,
           completed: subtaskRow.completed,
+          projectId: subtaskRow.project_id || undefined,
           createdAt: subtaskRow.created_at,
           updatedAt: subtaskRow.updated_at,
         });
@@ -75,6 +78,7 @@ export const get = api<GetTaskParams, Task>(
         progress: task.progress,
         startDate: task.start_date || undefined,
         endDate: task.end_date || undefined,
+        projectId: task.project_id || undefined,
         createdAt: task.created_at,
         updatedAt: task.updated_at,
         subtasks
