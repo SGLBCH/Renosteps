@@ -16,6 +16,13 @@ export function ProjectTitleHeader() {
   const [updating, setUpdating] = useState(false);
   const { toast } = useToast();
 
+  const handleStartEdit = () => {
+    if (currentProject) {
+      setEditValue(currentProject.name);
+      setIsEditing(true);
+    }
+  };
+
   const handleSaveEdit = async () => {
     if (currentProject && editValue.trim() && editValue.trim() !== currentProject.name) {
       setUpdating(true);
@@ -239,7 +246,7 @@ export function ProjectTitleHeader() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsEditing(true)}
+            onClick={handleStartEdit}
             className="h-8 w-8 p-0 opacity-60 hover:opacity-100 transition-opacity"
             disabled={updating}
           >
