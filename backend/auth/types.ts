@@ -1,33 +1,30 @@
+// User object returned to clients (without sensitive data)
 export interface User {
   id: number;
   email: string;
-  passwordHash: string;
   createdAt: Date;
 }
 
+// Request body for user registration
 export interface RegisterRequest {
   email: string;
   password: string;
 }
 
+// Request body for user login
 export interface LoginRequest {
   email: string;
   password: string;
 }
 
-export interface ForgotPasswordRequest {
-  email: string;
-}
-
+// Response for successful authentication (register/login)
 export interface AuthResponse {
   token: string;
-  user: {
-    id: number;
-    email: string;
-    createdAt: Date;
-  };
+  user: User;
 }
 
-export interface MessageResponse {
-  message: string;
+// Auth data stored in request context after JWT verification
+export interface AuthData {
+  userID: string;
+  email: string;
 }

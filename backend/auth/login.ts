@@ -1,33 +1,34 @@
 import { api, APIError } from "encore.dev/api";
 import { authDB } from "./db";
-import { verifyPassword } from "./utils";
+import { verifyPassword, generateToken, isValidEmail } from "./utils";
 import type { LoginRequest, AuthResponse } from "./types";
-import { generateToken } from "./jwt";
 
-// Authenticates a user and returns a JWT token.
+/**
+ * Login with email and password
+ * Validates credentials and returns JWT token if successful
+ */
 export const login = api<LoginRequest, AuthResponse>(
   { expose: true, method: "POST", path: "/auth/login" },
   async (req) => {
     console.log('Login attempt for email:', req.email);
     
     try {
-      // Validate input format
+      // Validate input
       if (!req.email || !req.email.trim()) {
         throw APIError.invalidArgument("Email is required");
       }
 
-      if (!req.password || !req.password.trim()) {
+      if (!req.password) {
         throw APIError.invalidArgument("Password is required");
       }
 
-      // Basic email format validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(req.email.trim())) {
+      // Validate email format
+      const email = req.email.trim().toLowerCase();
+      if (!isValidEmail(email)) {
         throw APIError.invalidArgument("Please enter a valid email address");
       }
 
       // Find user by email
-      console.log('Looking up user:', req.email.toLowerCase());
       const user = await authDB.queryRow<{
         id: number;
         email: string;
@@ -36,34 +37,29 @@ export const login = api<LoginRequest, AuthResponse>(
       }>`
         SELECT id, email, password_hash, created_at
         FROM users 
-        WHERE email = ${req.email.toLowerCase().trim()}
+        WHERE email = ${email}
       `;
 
       if (!user) {
-        console.error('User not found:', req.email);
+        console.log('Login failed: user not found for email:', email);
         // Use generic message to avoid revealing whether email exists
         throw APIError.unauthenticated("Invalid email or password");
       }
-
-      console.log('User found:', user.id, user.email);
 
       // Verify password
-      console.log('Verifying password for user:', user.id);
       const isValidPassword = await verifyPassword(req.password, user.password_hash);
       if (!isValidPassword) {
-        console.error('Invalid password for user:', user.id);
+        console.log('Login failed: invalid password for user:', user.id);
         // Use generic message to avoid revealing whether email exists
         throw APIError.unauthenticated("Invalid email or password");
       }
 
-      console.log('Password verified for user:', user.id);
+      console.log('Login successful for user:', user.id, user.email);
 
       // Generate JWT token
-      console.log('Generating JWT token for user:', user.id);
-      const token = await generateToken(user.id, user.email);
+      const token = generateToken(user.id, user.email);
 
-      console.log('Login completed successfully for user:', user.id);
-
+      // Return success response
       return {
         token,
         user: {
@@ -72,30 +68,23 @@ export const login = api<LoginRequest, AuthResponse>(
           createdAt: user.created_at,
         },
       };
+
     } catch (error) {
+      // Log detailed error for debugging
       console.error('Login error:', error);
       
+      // Re-throw APIErrors as-is (they have user-friendly messages)
       if (error instanceof APIError) {
         throw error;
       }
       
-      // Handle database connection errors
+      // Handle unexpected errors
       if (error instanceof Error) {
-        if (error.message.includes('connection') || error.message.includes('timeout')) {
-          throw APIError.unavailable("Service temporarily unavailable. Please try again in a moment.");
-        } else if (error.message.includes('JWT') || error.message.includes('token')) {
-          throw APIError.internal("Authentication service error. Please try again.");
-        } else if (error.message.includes('password')) {
-          throw APIError.unauthenticated("Invalid email or password");
-        } else if (error.message.includes('database') || error.message.includes('sql')) {
-          throw APIError.unavailable("Service temporarily unavailable. Please try again later.");
-        } else {
-          console.error('Unexpected login error:', error.message);
-          throw APIError.internal("Login failed. Please try again.");
-        }
+        console.error('Unexpected login error:', error.message);
+        throw APIError.internal("Login failed. Please try again.");
       }
       
-      throw APIError.internal("An unexpected error occurred. Please try again.");
+      throw APIError.internal("Login failed. Please try again.");
     }
   }
 );

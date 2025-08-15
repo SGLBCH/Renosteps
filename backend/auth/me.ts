@@ -1,30 +1,21 @@
-import { api, APIError, Header } from "encore.dev/api";
+import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { authDB } from "./db";
-import { verifyToken, extractTokenFromHeader } from "./jwt";
+import type { User } from "./types";
 
-interface GetMeRequest {
-  authorization: Header<"Authorization">;
-}
-
-interface UserProfile {
-  id: number;
-  email: string;
-  createdAt: Date;
-}
-
-// Gets the current authenticated user's profile.
-export const me = api<GetMeRequest, UserProfile>(
-  { expose: true, method: "GET", path: "/auth/me" },
-  async (req) => {
-    console.log('Getting user profile from token');
-    
+/**
+ * Get current authenticated user's profile
+ * Requires valid JWT token in Authorization header
+ */
+export const me = api<void, User>(
+  { expose: true, method: "GET", path: "/auth/me", auth: true },
+  async () => {
     try {
-      // Extract and verify token
-      const token = extractTokenFromHeader(req.authorization);
-      console.log('Token extracted, verifying...');
-      
-      const payload = await verifyToken(token);
-      console.log('Token verified for user:', payload.userId);
+      // Get auth data from the JWT token (automatically parsed by auth middleware)
+      const auth = getAuthData()!; // Non-null because auth: true is set
+      const userId = parseInt(auth.userID, 10);
+
+      console.log('Getting profile for user:', userId);
 
       // Get user from database
       const user = await authDB.queryRow<{
@@ -34,46 +25,35 @@ export const me = api<GetMeRequest, UserProfile>(
       }>`
         SELECT id, email, created_at
         FROM users 
-        WHERE id = ${payload.userId}
+        WHERE id = ${userId}
       `;
 
       if (!user) {
-        console.error('User not found in database:', payload.userId);
+        console.error('User not found in database:', userId);
         throw APIError.unauthenticated("User account not found. Please sign in again.");
       }
 
-      console.log('User profile retrieved successfully:', user.id);
+      console.log('Profile retrieved successfully for user:', user.id);
 
       return {
         id: user.id,
         email: user.email,
         createdAt: user.created_at,
       };
+
     } catch (error) {
-      console.error('Get user profile error:', error);
+      // Log detailed error for debugging
+      console.error('Get profile error:', error);
       
+      // Re-throw APIErrors as-is
       if (error instanceof APIError) {
         throw error;
       }
       
-      // Handle specific error types with user-friendly messages
+      // Handle unexpected errors
       if (error instanceof Error) {
-        if (error.message.includes('jwt expired') || error.message.includes('expired')) {
-          throw APIError.unauthenticated("Your session has expired. Please sign in again.");
-        } else if (error.message.includes('jwt malformed') || error.message.includes('malformed')) {
-          throw APIError.unauthenticated("Invalid session. Please sign in again.");
-        } else if (error.message.includes('invalid signature') || error.message.includes('signature')) {
-          throw APIError.unauthenticated("Invalid session. Please sign in again.");
-        } else if (error.message.includes('connection') || error.message.includes('timeout')) {
-          throw APIError.unavailable("Service temporarily unavailable. Please try again in a moment.");
-        } else if (error.message.includes('database') || error.message.includes('sql')) {
-          throw APIError.unavailable("Service temporarily unavailable. Please try again later.");
-        } else if (error.message.includes('JWT') || error.message.includes('token')) {
-          throw APIError.unauthenticated("Invalid session. Please sign in again.");
-        } else {
-          console.error('Unexpected profile error:', error.message);
-          throw APIError.internal("Failed to retrieve profile. Please try again.");
-        }
+        console.error('Unexpected profile error:', error.message);
+        throw APIError.internal("Failed to retrieve profile. Please try again.");
       }
       
       throw APIError.unauthenticated("Authentication required. Please sign in.");
