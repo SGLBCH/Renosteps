@@ -549,11 +549,11 @@ export function Budget() {
       </div>
 
       {/* Expenses List */}
-      <Card>
-        <CardHeader>
+      <Card className="flex-1 flex flex-col">
+        <CardHeader className="flex-shrink-0">
           <CardTitle>Recent Expenses</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-hidden">
           {expensesLoading ? (
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => (
@@ -569,55 +569,57 @@ export function Budget() {
               <p className="text-sm">Add your first expense to get started</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {expenses.map((expense) => (
-                <div
-                  key={expense.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Tag className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <div className="font-medium">{expense.description}</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        <span className="capitalize">{expense.category.replace('-', ' ')}</span>
-                        <span>•</span>
-                        <Calendar className="h-3 w-3" />
-                        {new Date(expense.date).toLocaleDateString()}
+            <div className="h-full overflow-y-auto">
+              <div className="space-y-2 pr-2">
+                {expenses.map((expense) => (
+                  <div
+                    key={expense.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Tag className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <div className="font-medium">{expense.description}</div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                          <span className="capitalize">{expense.category.replace('-', ' ')}</span>
+                          <span>•</span>
+                          <Calendar className="h-3 w-3" />
+                          {new Date(expense.date).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="text-lg font-semibold">
-                      ${expense.amount.toLocaleString()}
+                    <div className="flex items-center space-x-2">
+                      <div className="text-lg font-semibold">
+                        ${expense.amount.toLocaleString()}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(expense)}
+                        disabled={operationLoading.delete === expense.id.toString()}
+                        title="Edit expense"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteExpense(expense.id)}
+                        disabled={operationLoading.delete === expense.id.toString()}
+                        title="Delete expense"
+                      >
+                        {operationLoading.delete === expense.id.toString() ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEditDialog(expense)}
-                      disabled={operationLoading.delete === expense.id.toString()}
-                      title="Edit expense"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteExpense(expense.id)}
-                      disabled={operationLoading.delete === expense.id.toString()}
-                      title="Delete expense"
-                    >
-                      {operationLoading.delete === expense.id.toString() ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </CardContent>

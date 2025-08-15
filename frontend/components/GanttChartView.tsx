@@ -386,9 +386,9 @@ function GanttChartContent() {
         <p className="text-sm text-muted-foreground">{currentProject.name}</p>
       </div>
       
-      <div className="bg-card border border-border rounded-lg shadow-sm">
+      <div className="bg-card border border-border rounded-lg shadow-sm flex flex-col h-[calc(100vh-200px)]">
         {/* Toolbar */}
-        <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-4">
+        <div className="p-4 border-b border-border flex flex-wrap items-center justify-between gap-4 flex-shrink-0">
           <div className="flex items-center gap-4">
             {/* View Mode Select */}
             <ErrorBoundary>
@@ -427,15 +427,15 @@ function GanttChartContent() {
           </div>
         </div>
 
-        {/* Gantt Grid */}
+        {/* Gantt Grid - Scrollable */}
         <div 
-          className="overflow-auto"
+          className="flex-1 overflow-auto"
           ref={ganttRef}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
-          <div className="min-w-[800px]">
+          <div className="min-w-[800px] h-full">
             {/* Header Row */}
             <div className={`grid border-b border-border sticky top-0 bg-card z-10`} style={{ gridTemplateColumns: `300px repeat(${dateHeaders.length}, 1fr)` }}>
               <div className="p-3 border-r border-border font-medium">Task</div>
@@ -523,7 +523,7 @@ function GanttChartContent() {
         </div>
 
         {/* Legend */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border flex-shrink-0">
           <div className="flex items-center gap-6 text-sm">
             <span className="font-medium">Priority:</span>
             <div className="flex items-center gap-2">

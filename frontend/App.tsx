@@ -14,10 +14,10 @@ export default function App() {
   return (
     <ProjectProvider>
       <ErrorBoundary>
-        <div className="min-h-screen text-foreground" style={{ backgroundColor: '#F9F7F3' }}>
-          <div className="flex h-screen">
+        <div className="h-screen overflow-hidden text-foreground" style={{ backgroundColor: '#F9F7F3' }}>
+          <div className="flex h-full">
             {/* Desktop Sidebar */}
-            <div className="hidden lg:block">
+            <div className="hidden lg:block flex-shrink-0">
               <ErrorBoundary>
                 <Sidebar 
                   collapsed={sidebarCollapsed} 
@@ -45,7 +45,7 @@ export default function App() {
             </Sheet>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 min-w-0 overflow-hidden">
               <MainContent />
             </div>
           </div>

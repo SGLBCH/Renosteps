@@ -14,12 +14,12 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   return (
     <div 
       className={`
-        h-full bg-card border-r border-border transition-all duration-300 ease-in-out
+        h-full bg-card border-r border-border transition-all duration-300 ease-in-out flex flex-col
         ${collapsed ? 'w-16' : 'w-80'}
       `}
     >
-      <div className="p-4 space-y-6">
-        {/* Collapse Button */}
+      {/* Header with collapse button */}
+      <div className="p-4 flex-shrink-0">
         <div className="flex justify-end">
           <Button
             variant="ghost"
@@ -34,9 +34,12 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
             )}
           </Button>
         </div>
+      </div>
 
-        {!collapsed && (
-          <div className="space-y-6 animate-fade-in">
+      {/* Scrollable content */}
+      {!collapsed && (
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="px-4 pb-4 space-y-6 animate-fade-in">
             <ErrorBoundary>
               <ProjectOverview />
             </ErrorBoundary>
@@ -47,8 +50,8 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
               <ContractorsList />
             </ErrorBoundary>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
