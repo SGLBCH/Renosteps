@@ -9,15 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import backend from '~backend/client';
-import type { BudgetSummary, Expense } from '~backend/budget/types';
+import type { BudgetExpense } from '~backend/budget/types';
 import { useBudget } from '../hooks/useBudget';
 
 export function Budget() {
   const { budgetSummary, loading, error, refreshBudget } = useBudget();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenses, setExpenses] = useState<BudgetExpense[]>([]);
   const [expensesLoading, setExpensesLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<BudgetExpense | null>(null);
   const { toast } = useToast();
 
   // Form state
@@ -37,15 +37,16 @@ export function Budget() {
   useEffect(() => {
     if (budgetSummary) {
       setBudgetAmount(budgetSummary.totalBudget?.toString() || '');
+      setExpenses(budgetSummary.expenses || []);
+      setExpensesLoading(false);
     }
   }, [budgetSummary]);
 
   const fetchExpenses = async () => {
     try {
       setExpensesLoading(true);
-      // Note: We'll need to add a list expenses endpoint to the backend
-      // For now, we'll use an empty array
-      setExpenses([]);
+      // Expenses are now loaded via the budget summary
+      // This function is kept for compatibility but will be updated by the effect above
     } catch (err) {
       console.error('Failed to fetch expenses:', err);
       toast({
@@ -94,7 +95,6 @@ export function Budget() {
       setIsDialogOpen(false);
       
       // Refresh data
-      await fetchExpenses();
       refreshBudget();
     } catch (err) {
       console.error('Failed to save expense:', err);
@@ -134,14 +134,13 @@ export function Budget() {
     }
   };
 
-  const handleDeleteExpense = async (expenseId: string) => {
+  const handleDeleteExpense = async (expenseId: number) => {
     try {
       await backend.budget.deleteExpense({ id: expenseId });
       toast({
         title: "Success",
         description: "Expense deleted successfully",
       });
-      await fetchExpenses();
       refreshBudget();
     } catch (err) {
       console.error('Failed to delete expense:', err);
@@ -153,7 +152,7 @@ export function Budget() {
     }
   };
 
-  const openEditDialog = (expense: Expense) => {
+  const openEditDialog = (expense: BudgetExpense) => {
     setEditingExpense(expense);
     setFormData({
       amount: expense.amount.toString(),
@@ -384,7 +383,7 @@ export function Budget() {
                         <span className="capitalize">{expense.category}</span>
                         <span>•</span>
                         <Calendar className="h-3 w-3" />
-                        {expense.date.toLocaleDateString()}
+                        {new Date(expense.date).toLocaleDateString()}
                       </div>
                     </div>
                   </div>

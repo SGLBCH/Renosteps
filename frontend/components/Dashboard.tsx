@@ -5,19 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { DollarSign, TrendingUp, TrendingDown, Calendar, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useToast } from '@/components/ui/use-toast';
+import { useBudget } from '../hooks/useBudget';
 import backend from '~backend/client';
 import type { Task } from './TaskCardsView';
-
-interface BudgetData {
-  totalBudget: number;
-  totalSpent: number;
-  remaining: number;
-  categoryBreakdown: {
-    category: string;
-    spent: number;
-    count: number;
-  }[];
-}
 
 interface ProjectStats {
   totalTasks: number;
@@ -30,44 +20,33 @@ interface ProjectStats {
 
 function DashboardContent() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [tasksError, setTasksError] = useState<string | null>(null);
+  const { budgetSummary, loading: budgetLoading, error: budgetError } = useBudget();
   const { toast } = useToast();
 
-  const loadData = async () => {
+  const loadTasks = async () => {
     try {
-      setLoading(true);
-      setError(null);
+      setTasksLoading(true);
+      setTasksError(null);
       
-      // Load tasks and budget data in parallel
-      const [tasksResponse, budgetResponse] = await Promise.all([
-        backend.tasks.list(),
-        backend.budget.getSummary(),
-      ]);
-      
+      const tasksResponse = await backend.tasks.list();
       setTasks(tasksResponse.tasks);
-      setBudgetData({
-        totalBudget: budgetResponse.totalBudget,
-        totalSpent: budgetResponse.totalSpent,
-        remaining: budgetResponse.remaining,
-        categoryBreakdown: budgetResponse.categoryBreakdown,
-      });
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      setError('Failed to load dashboard data');
+      console.error('Error loading tasks:', error);
+      setTasksError('Failed to load tasks');
       toast({
-        title: "Error",
-        description: "Failed to load dashboard data. Please try again.",
+        title: "Warning",
+        description: "Failed to load tasks data. Budget information is still available.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setTasksLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadTasks();
   }, []);
 
   const formatCurrency = (amount: number) => {
@@ -114,37 +93,19 @@ function DashboardContent() {
     ? Math.round((projectStats.completedTasks / projectStats.totalTasks) * 100)
     : 0;
 
-  const budgetProgress = budgetData && budgetData.totalBudget > 0 
-    ? Math.round((budgetData.totalSpent / budgetData.totalBudget) * 100)
+  const budgetProgress = budgetSummary && budgetSummary.totalBudget > 0 
+    ? Math.round((budgetSummary.totalExpenses / budgetSummary.totalBudget) * 100)
     : 0;
 
-  const isOverBudget = budgetData ? budgetData.totalSpent > budgetData.totalBudget : false;
+  const isOverBudget = budgetSummary ? budgetSummary.totalExpenses > budgetSummary.totalBudget : false;
 
-  if (loading) {
+  // Show loading state only if both are loading
+  if (budgetLoading && tasksLoading) {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-semibold">Dashboard</h2>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted-foreground">Loading dashboard...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Dashboard</h2>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="text-muted-foreground mb-4">{error}</div>
-            <button 
-              onClick={loadData}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-            >
-              Try Again
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -163,11 +124,20 @@ function DashboardContent() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{projectProgress}%</div>
-            <p className="text-xs text-muted-foreground">
-              {projectStats.completedTasks} of {projectStats.totalTasks} tasks completed
-            </p>
-            <Progress value={projectProgress} className="mt-2 h-2" />
+            {tasksError ? (
+              <div className="text-sm text-muted-foreground">
+                <div className="text-2xl font-bold">--</div>
+                <p className="text-xs text-muted-foreground">Tasks unavailable</p>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{projectProgress}%</div>
+                <p className="text-xs text-muted-foreground">
+                  {projectStats.completedTasks} of {projectStats.totalTasks} tasks completed
+                </p>
+                <Progress value={projectProgress} className="mt-2 h-2" />
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -178,20 +148,29 @@ function DashboardContent() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${isOverBudget ? 'text-destructive' : ''}`}>
-              {budgetProgress}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {budgetData ? formatCurrency(budgetData.totalSpent) : '$0'} of {budgetData ? formatCurrency(budgetData.totalBudget) : '$0'}
-            </p>
-            <Progress 
-              value={Math.min(budgetProgress, 100)} 
-              className={`mt-2 h-2 ${isOverBudget ? '[&>div]:bg-destructive' : ''}`} 
-            />
-            {isOverBudget && (
-              <p className="text-xs text-destructive mt-1">
-                Over budget by {budgetData ? formatCurrency(budgetData.totalSpent - budgetData.totalBudget) : '$0'}
-              </p>
+            {budgetError ? (
+              <div className="text-sm text-muted-foreground">
+                <div className="text-2xl font-bold">--</div>
+                <p className="text-xs text-muted-foreground">Budget unavailable</p>
+              </div>
+            ) : (
+              <>
+                <div className={`text-2xl font-bold ${isOverBudget ? 'text-destructive' : ''}`}>
+                  {budgetProgress}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {budgetSummary ? formatCurrency(budgetSummary.totalExpenses) : '$0'} of {budgetSummary ? formatCurrency(budgetSummary.totalBudget) : '$0'}
+                </p>
+                <Progress 
+                  value={Math.min(budgetProgress, 100)} 
+                  className={`mt-2 h-2 ${isOverBudget ? '[&>div]:bg-destructive' : ''}`} 
+                />
+                {isOverBudget && (
+                  <p className="text-xs text-destructive mt-1">
+                    Over budget by {budgetSummary ? formatCurrency(budgetSummary.totalExpenses - budgetSummary.totalBudget) : '$0'}
+                  </p>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -203,22 +182,31 @@ function DashboardContent() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{projectStats.inProgressTasks}</div>
-            <p className="text-xs text-muted-foreground">
-              {projectStats.notStartedTasks} not started
-            </p>
-            <div className="flex gap-1 mt-2">
-              <div className="flex-1 bg-blue-100 h-2 rounded">
-                <div 
-                  className="bg-blue-500 h-2 rounded" 
-                  style={{ 
-                    width: projectStats.totalTasks > 0 
-                      ? `${(projectStats.inProgressTasks / projectStats.totalTasks) * 100}%` 
-                      : '0%' 
-                  }}
-                ></div>
+            {tasksError ? (
+              <div className="text-sm text-muted-foreground">
+                <div className="text-2xl font-bold">--</div>
+                <p className="text-xs text-muted-foreground">Tasks unavailable</p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold">{projectStats.inProgressTasks}</div>
+                <p className="text-xs text-muted-foreground">
+                  {projectStats.notStartedTasks} not started
+                </p>
+                <div className="flex gap-1 mt-2">
+                  <div className="flex-1 bg-blue-100 h-2 rounded">
+                    <div 
+                      className="bg-blue-500 h-2 rounded" 
+                      style={{ 
+                        width: projectStats.totalTasks > 0 
+                          ? `${(projectStats.inProgressTasks / projectStats.totalTasks) * 100}%` 
+                          : '0%' 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -229,20 +217,35 @@ function DashboardContent() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Overdue</span>
-                <Badge variant={projectStats.overdueTasks > 0 ? "destructive" : "secondary"}>
-                  {projectStats.overdueTasks}
-                </Badge>
+            {tasksError ? (
+              <div className="text-sm text-muted-foreground">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Overdue</span>
+                    <Badge variant="secondary">--</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Due this week</span>
+                    <Badge variant="secondary">--</Badge>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Due this week</span>
-                <Badge variant={projectStats.upcomingTasks > 0 ? "default" : "secondary"}>
-                  {projectStats.upcomingTasks}
-                </Badge>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Overdue</span>
+                  <Badge variant={projectStats.overdueTasks > 0 ? "destructive" : "secondary"}>
+                    {projectStats.overdueTasks}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Due this week</span>
+                  <Badge variant={projectStats.upcomingTasks > 0 ? "default" : "secondary"}>
+                    {projectStats.upcomingTasks}
+                  </Badge>
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -258,69 +261,85 @@ function DashboardContent() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Summary */}
-            <div className="grid grid-cols-3 gap-4 p-4 bg-secondary rounded-lg">
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground">Total</div>
-                <div className="font-semibold">{budgetData ? formatCurrency(budgetData.totalBudget) : '$0'}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground">Spent</div>
-                <div className={`font-semibold ${isOverBudget ? 'text-destructive' : 'text-red-600'}`}>
-                  {budgetData ? formatCurrency(budgetData.totalSpent) : '$0'}
+            {budgetError ? (
+              <div className="text-center py-4 text-muted-foreground">
+                Failed to load budget data
+                <div className="mt-2">
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
+                  >
+                    Retry
+                  </button>
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-sm text-muted-foreground">Remaining</div>
-                <div className={`font-semibold ${budgetData && budgetData.remaining >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                  {budgetData ? formatCurrency(budgetData.remaining) : '$0'}
+            ) : (
+              <>
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-4 p-4 bg-secondary rounded-lg">
+                  <div className="text-center">
+                    <div className="text-sm text-muted-foreground">Total</div>
+                    <div className="font-semibold">{budgetSummary ? formatCurrency(budgetSummary.totalBudget) : '$0'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-muted-foreground">Spent</div>
+                    <div className={`font-semibold ${isOverBudget ? 'text-destructive' : 'text-red-600'}`}>
+                      {budgetSummary ? formatCurrency(budgetSummary.totalExpenses) : '$0'}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-muted-foreground">Remaining</div>
+                    <div className={`font-semibold ${budgetSummary && budgetSummary.remaining >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                      {budgetSummary ? formatCurrency(budgetSummary.remaining) : '$0'}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Category Breakdown */}
-            {budgetData && budgetData.categoryBreakdown.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="font-medium">By Category</h4>
-                {budgetData.categoryBreakdown.slice(0, 5).map((category) => {
-                  const categoryProgress = budgetData.totalBudget > 0 
-                    ? (category.spent / budgetData.totalBudget) * 100 
-                    : 0;
-                  
-                  return (
-                    <div key={category.category} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">{category.category}</span>
-                        <div className="text-right">
-                          <div className="text-sm font-medium">
-                            {formatCurrency(category.spent)}
+                {/* Category Breakdown */}
+                {budgetSummary && budgetSummary.categoryBreakdown.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium">By Category</h4>
+                    {budgetSummary.categoryBreakdown.slice(0, 5).map((category) => {
+                      const categoryProgress = budgetSummary.totalBudget > 0 
+                        ? (category.spent / budgetSummary.totalBudget) * 100 
+                        : 0;
+                      
+                      return (
+                        <div key={category.category} className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-medium">{category.category}</span>
+                            <div className="text-right">
+                              <div className="text-sm font-medium">
+                                {formatCurrency(category.spent)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {category.count} expense{category.count !== 1 ? 's' : ''}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {category.count} expense{category.count !== 1 ? 's' : ''}
+                          <div className="flex items-center gap-2">
+                            <Progress value={categoryProgress} className="flex-1 h-2" />
+                            <span className="text-xs text-muted-foreground w-12 text-right">
+                              {Math.round(categoryProgress)}%
+                            </span>
                           </div>
                         </div>
+                      );
+                    })}
+                    {budgetSummary.categoryBreakdown.length > 5 && (
+                      <div className="text-sm text-muted-foreground">
+                        +{budgetSummary.categoryBreakdown.length - 5} more categories
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Progress value={categoryProgress} className="flex-1 h-2" />
-                        <span className="text-xs text-muted-foreground w-12 text-right">
-                          {Math.round(categoryProgress)}%
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-                {budgetData.categoryBreakdown.length > 5 && (
-                  <div className="text-sm text-muted-foreground">
-                    +{budgetData.categoryBreakdown.length - 5} more categories
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {(!budgetData || budgetData.categoryBreakdown.length === 0) && (
-              <div className="text-center py-4 text-muted-foreground">
-                No expenses recorded yet
-              </div>
+                {(!budgetSummary || budgetSummary.categoryBreakdown.length === 0) && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No expenses recorded yet
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -334,92 +353,108 @@ function DashboardContent() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Status Distribution */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Completed</span>
-                  <Badge variant="default" className="bg-green-500">
-                    {projectStats.completedTasks}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">In Progress</span>
-                  <Badge variant="default" className="bg-blue-500">
-                    {projectStats.inProgressTasks}
-                  </Badge>
+            {tasksError ? (
+              <div className="text-center py-4 text-muted-foreground">
+                Failed to load tasks data
+                <div className="mt-2">
+                  <button 
+                    onClick={loadTasks}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
+                  >
+                    Retry
+                  </button>
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Not Started</span>
-                  <Badge variant="secondary">
-                    {projectStats.notStartedTasks}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Overdue</span>
-                  <Badge variant={projectStats.overdueTasks > 0 ? "destructive" : "secondary"}>
-                    {projectStats.overdueTasks}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            {/* Progress Visualization */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Overall Progress</span>
-                <span>{projectProgress}%</span>
-              </div>
-              <div className="flex h-3 bg-secondary rounded-full overflow-hidden">
-                <div 
-                  className="bg-green-500 transition-all duration-300"
-                  style={{ 
-                    width: projectStats.totalTasks > 0 
-                      ? `${(projectStats.completedTasks / projectStats.totalTasks) * 100}%` 
-                      : '0%' 
-                  }}
-                ></div>
-                <div 
-                  className="bg-blue-500 transition-all duration-300"
-                  style={{ 
-                    width: projectStats.totalTasks > 0 
-                      ? `${(projectStats.inProgressTasks / projectStats.totalTasks) * 100}%` 
-                      : '0%' 
-                  }}
-                ></div>
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Completed: {projectStats.completedTasks}</span>
-                <span>In Progress: {projectStats.inProgressTasks}</span>
-                <span>Not Started: {projectStats.notStartedTasks}</span>
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="space-y-2">
-              <h4 className="font-medium">Recent Activity</h4>
-              <div className="space-y-2 max-h-32 overflow-y-auto">
-                {tasks
-                  .filter(task => task.status === 'completed')
-                  .slice(0, 3)
-                  .map((task) => (
-                    <div key={task.id} className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
-                      <span className="truncate">{task.title}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {task.category}
+            ) : (
+              <>
+                {/* Status Distribution */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Completed</span>
+                      <Badge variant="default" className="bg-green-500">
+                        {projectStats.completedTasks}
                       </Badge>
                     </div>
-                  ))}
-                {projectStats.completedTasks === 0 && (
-                  <div className="text-sm text-muted-foreground">
-                    No completed tasks yet
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">In Progress</span>
+                      <Badge variant="default" className="bg-blue-500">
+                        {projectStats.inProgressTasks}
+                      </Badge>
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Not Started</span>
+                      <Badge variant="secondary">
+                        {projectStats.notStartedTasks}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Overdue</span>
+                      <Badge variant={projectStats.overdueTasks > 0 ? "destructive" : "secondary"}>
+                        {projectStats.overdueTasks}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Visualization */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Overall Progress</span>
+                    <span>{projectProgress}%</span>
+                  </div>
+                  <div className="flex h-3 bg-secondary rounded-full overflow-hidden">
+                    <div 
+                      className="bg-green-500 transition-all duration-300"
+                      style={{ 
+                        width: projectStats.totalTasks > 0 
+                          ? `${(projectStats.completedTasks / projectStats.totalTasks) * 100}%` 
+                          : '0%' 
+                      }}
+                    ></div>
+                    <div 
+                      className="bg-blue-500 transition-all duration-300"
+                      style={{ 
+                        width: projectStats.totalTasks > 0 
+                          ? `${(projectStats.inProgressTasks / projectStats.totalTasks) * 100}%` 
+                          : '0%' 
+                      }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Completed: {projectStats.completedTasks}</span>
+                    <span>In Progress: {projectStats.inProgressTasks}</span>
+                    <span>Not Started: {projectStats.notStartedTasks}</span>
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="space-y-2">
+                  <h4 className="font-medium">Recent Activity</h4>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {tasks
+                      .filter(task => task.status === 'completed')
+                      .slice(0, 3)
+                      .map((task) => (
+                        <div key={task.id} className="flex items-center gap-2 text-sm">
+                          <CheckCircle className="h-3 w-3 text-green-500 flex-shrink-0" />
+                          <span className="truncate">{task.title}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {task.category}
+                          </Badge>
+                        </div>
+                      ))}
+                    {projectStats.completedTasks === 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        No completed tasks yet
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

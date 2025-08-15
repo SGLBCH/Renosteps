@@ -38,6 +38,18 @@ export interface BudgetSummaryResponse {
   }[];
 }
 
+export interface BudgetSummary {
+  totalBudget: number;
+  totalExpenses: number;
+  remaining: number;
+  expenses: BudgetExpense[];
+  categoryBreakdown: {
+    category: string;
+    spent: number;
+    count: number;
+  }[];
+}
+
 export interface ListExpensesResponse {
   expenses: BudgetExpense[];
 }
@@ -45,3 +57,6 @@ export interface ListExpensesResponse {
 export interface DeleteExpenseParams {
   id: number;
 }
+
+// Alias for compatibility
+export type Expense = BudgetExpense;

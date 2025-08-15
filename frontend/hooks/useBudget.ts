@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 import backend from '~backend/client';
-import type { BudgetSummary } from '~backend/budget/types';
+import type { BudgetSummaryResponse } from '~backend/budget/types';
+
+export interface BudgetSummary {
+  totalBudget: number;
+  totalExpenses: number;
+  remaining: number;
+  expenses: any[];
+  categoryBreakdown: {
+    category: string;
+    spent: number;
+    count: number;
+  }[];
+}
 
 export function useBudget() {
   const [budgetSummary, setBudgetSummary] = useState<BudgetSummary | null>(null);
@@ -12,7 +24,17 @@ export function useBudget() {
       setLoading(true);
       setError(null);
       const summary = await backend.budget.getSummary();
-      setBudgetSummary(summary);
+      
+      // Transform the response to match our expected format
+      const transformedSummary: BudgetSummary = {
+        totalBudget: summary.totalBudget || 0,
+        totalExpenses: summary.totalSpent || 0,
+        remaining: summary.remaining || 0,
+        expenses: summary.expenses || [],
+        categoryBreakdown: summary.categoryBreakdown || [],
+      };
+      
+      setBudgetSummary(transformedSummary);
     } catch (err) {
       console.error('Failed to fetch budget summary:', err);
       setError('Failed to load budget summary');
