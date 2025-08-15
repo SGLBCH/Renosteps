@@ -13,7 +13,7 @@ export const create = api<CreateTaskRequest, Task>(
     try {
       const task = await withTimeout(async () => {
         const row = await tasksDB.queryRow<{
-          id: string;
+          id: number;
           title: string;
           description: string | null;
           category: string;

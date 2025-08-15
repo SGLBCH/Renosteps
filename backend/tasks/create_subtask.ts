@@ -20,8 +20,8 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
     }
 
     const row = await tasksDB.queryRow<{
-      id: string;
-      task_id: string;
+      id: number;
+      task_id: number;
       title: string;
       completed: boolean;
       created_at: Date;
@@ -37,8 +37,8 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
     }
 
     return {
-      id: row.id,
-      taskId: row.task_id,
+      id: row.id.toString(),
+      taskId: row.task_id.toString(),
       title: row.title,
       completed: row.completed,
       createdAt: row.created_at,

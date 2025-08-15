@@ -7,7 +7,7 @@ export const get = api<GetTaskParams, Task>(
   { expose: true, method: "GET", path: "/tasks/:id" },
   async ({ id }) => {
     const task = await tasksDB.queryRow<{
-      id: string;
+      id: number;
       title: string;
       description: string | null;
       category: string;
@@ -33,8 +33,8 @@ export const get = api<GetTaskParams, Task>(
     // Get subtasks for this task
     const subtasks: Subtask[] = [];
     const subtaskRows = tasksDB.query<{
-      id: string;
-      task_id: string;
+      id: number;
+      task_id: number;
       title: string;
       completed: boolean;
       created_at: Date;
@@ -49,8 +49,8 @@ export const get = api<GetTaskParams, Task>(
 
     for await (const subtaskRow of subtaskRows) {
       subtasks.push({
-        id: subtaskRow.id,
-        taskId: subtaskRow.task_id,
+        id: subtaskRow.id.toString(),
+        taskId: subtaskRow.task_id.toString(),
         title: subtaskRow.title,
         completed: subtaskRow.completed,
         createdAt: subtaskRow.created_at,

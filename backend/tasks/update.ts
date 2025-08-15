@@ -86,7 +86,7 @@ export const update = api<UpdateTaskRequest, Task>(
         `;
 
         const row = await tasksDB.rawQueryRow<{
-          id: string;
+          id: number;
           title: string;
           description: string | null;
           category: string;
@@ -105,8 +105,8 @@ export const update = api<UpdateTaskRequest, Task>(
 
         // Get subtasks
         const subtasks = await tasksDB.queryAll<{
-          id: string;
-          task_id: string;
+          id: number;
+          task_id: number;
           title: string;
           completed: boolean;
           created_at: Date;
@@ -131,8 +131,8 @@ export const update = api<UpdateTaskRequest, Task>(
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           subtasks: subtasks.map(subtask => ({
-            id: subtask.id,
-            taskId: subtask.task_id,
+            id: subtask.id.toString(),
+            taskId: subtask.task_id.toString(),
             title: subtask.title,
             completed: subtask.completed,
             createdAt: subtask.created_at,

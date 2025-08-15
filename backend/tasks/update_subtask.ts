@@ -44,10 +44,16 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
 
     await tasksDB.rawExec(query, ...updateValues);
 
-    const updatedSubtask = await tasksDB.queryRow<Subtask>`
+    const updatedSubtask = await tasksDB.queryRow<{
+      id: number;
+      task_id: number;
+      title: string;
+      completed: boolean;
+      created_at: Date;
+      updated_at: Date;
+    }>`
       SELECT 
-        id, task_id as "taskId", title, completed,
-        created_at as "createdAt", updated_at as "updatedAt"
+        id, task_id, title, completed, created_at, updated_at
       FROM subtasks 
       WHERE id = ${id}
     `;
@@ -56,6 +62,13 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
       throw APIError.internal("Failed to retrieve updated subtask");
     }
 
-    return updatedSubtask;
+    return {
+      id: updatedSubtask.id.toString(),
+      taskId: updatedSubtask.task_id.toString(),
+      title: updatedSubtask.title,
+      completed: updatedSubtask.completed,
+      createdAt: updatedSubtask.created_at,
+      updatedAt: updatedSubtask.updated_at,
+    };
   }
 );

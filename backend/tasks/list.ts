@@ -14,7 +14,7 @@ export const list = api<void, ListTasksResponse>(
       // Use timeout wrapper for database operations
       const tasks = await withTimeout(async () => {
         const taskRows = await tasksDB.queryAll<{
-          id: string;
+          id: number;
           title: string;
           description: string | null;
           category: string;
@@ -40,8 +40,8 @@ export const list = api<void, ListTasksResponse>(
         
         // Get all subtasks for these tasks in one query
         const subtaskRows = await tasksDB.queryAll<{
-          id: string;
-          task_id: string;
+          id: number;
+          task_id: number;
           title: string;
           completed: boolean;
           created_at: Date;
@@ -54,14 +54,14 @@ export const list = api<void, ListTasksResponse>(
         `;
 
         // Group subtasks by task_id
-        const subtasksByTaskId = new Map<string, Subtask[]>();
+        const subtasksByTaskId = new Map<number, Subtask[]>();
         for (const subtask of subtaskRows) {
           if (!subtasksByTaskId.has(subtask.task_id)) {
             subtasksByTaskId.set(subtask.task_id, []);
           }
           subtasksByTaskId.get(subtask.task_id)!.push({
-            id: subtask.id,
-            taskId: subtask.task_id,
+            id: subtask.id.toString(),
+            taskId: subtask.task_id.toString(),
             title: subtask.title,
             completed: subtask.completed,
             createdAt: subtask.created_at,
