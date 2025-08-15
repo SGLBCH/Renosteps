@@ -1,19 +1,22 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Edit2, ChevronDown, Plus } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Edit2, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { useProject } from '../contexts/ProjectContext';
 import { useToast } from '@/components/ui/use-toast';
 import backend from '~backend/client';
 
 export function ProjectTitleHeader() {
-  const { currentProject, projects, setCurrentProject, updateProject, addProject, loading } = useProject();
+  const { currentProject, projects, setCurrentProject, updateProject, addProject, removeProject, loading } = useProject();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(currentProject?.name || '');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
 
   const handleStartEdit = () => {
@@ -82,6 +85,38 @@ export function ProjectTitleHeader() {
       setCurrentProject(newProject);
       setEditValue(newProject.name);
       setShowCreateDialog(false);
+    }
+  };
+
+  const handleDeleteProject = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!currentProject) return;
+
+    setDeleting(true);
+    try {
+      await backend.projects.deleteProject({ id: currentProject.id });
+      
+      // Remove the project from the context
+      removeProject(currentProject.id);
+      
+      toast({
+        title: "Success",
+        description: `Project "${currentProject.name}" and all associated data have been deleted.`,
+      });
+      
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -158,9 +193,10 @@ export function ProjectTitleHeader() {
                     <div className="text-sm text-muted-foreground">{project.dateRange}</div>
                   </DropdownMenuItem>
                 ))}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleAddNewProject}
-                  className="flex items-center gap-2 p-3 cursor-pointer border-t"
+                  className="flex items-center gap-2 p-3 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
                   <span className="text-2xl font-semibold tracking-tight">Add new project</span>
@@ -223,13 +259,23 @@ export function ProjectTitleHeader() {
                       <div className="text-sm text-muted-foreground">{project.dateRange}</div>
                     </DropdownMenuItem>
                   ))}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleAddNewProject}
-                    className="flex items-center gap-2 p-3 cursor-pointer border-t"
+                    className="flex items-center gap-2 p-3 cursor-pointer"
                   >
                     <Plus className="h-4 w-4" />
                     <span className="text-2xl font-semibold tracking-tight">Add new project</span>
                   </DropdownMenuItem>
+                  {projects.length > 1 && (
+                    <DropdownMenuItem
+                      onClick={handleDeleteProject}
+                      className="flex items-center gap-2 p-3 cursor-pointer text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="text-2xl font-semibold tracking-tight">Delete project</span>
+                    </DropdownMenuItem>
+                  )}
                 </>
               ) : (
                 <DropdownMenuItem
@@ -264,6 +310,57 @@ export function ProjectTitleHeader() {
         onOpenChange={setShowCreateDialog}
         onProjectCreated={handleProjectCreated}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{currentProject?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+              <h4 className="font-semibold text-destructive mb-2">This will permanently delete:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• All tasks and subtasks in this project</li>
+                <li>• All budget data and expenses</li>
+                <li>• All project settings and configurations</li>
+                <li>• The project itself</li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Project
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

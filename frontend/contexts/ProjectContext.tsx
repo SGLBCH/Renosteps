@@ -14,6 +14,7 @@ interface ProjectContextType {
   setCurrentProject: (project: Project) => void;
   addProject: (project: Project) => void;
   updateProject: (projectId: string, updates: Partial<Project>) => void;
+  removeProject: (projectId: string) => void;
   loading: boolean;
 }
 
@@ -128,6 +129,28 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
     }
   };
 
+  const removeProject = (projectId: string) => {
+    setProjects(prev => {
+      const newProjects = prev.filter(p => p.id !== projectId);
+      
+      // If the deleted project was the current project, select a new one
+      if (currentProject?.id === projectId) {
+        if (newProjects.length > 0) {
+          // Select the first available project
+          const newCurrentProject = newProjects[0];
+          setCurrentProjectState(newCurrentProject);
+          localStorage.setItem('currentProjectId', newCurrentProject.id);
+        } else {
+          // No projects left
+          setCurrentProjectState(null);
+          localStorage.removeItem('currentProjectId');
+        }
+      }
+      
+      return newProjects;
+    });
+  };
+
   return (
     <ProjectContext.Provider value={{
       currentProject,
@@ -135,6 +158,7 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
       setCurrentProject,
       addProject,
       updateProject,
+      removeProject,
       loading
     }}>
       {children}

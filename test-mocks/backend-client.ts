@@ -24,6 +24,7 @@ export default {
     list: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    deleteProject: vi.fn(),
   },
   contractors: {
     list: vi.fn(),
