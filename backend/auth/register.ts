@@ -89,34 +89,36 @@ export const register = api<RegisterRequest, AuthResponse>(
           createdAt: user.created_at,
         },
       };
-    } catch (error) {
-      console.error('Registration error:', error);
+    } catch (err: any) {
+      console.error('Registration error:', err);
       
-      if (error instanceof APIError) {
-        throw error;
+      if (err instanceof APIError) {
+        throw err;
       }
       
       // Handle database errors with user-friendly messages
-      if (error instanceof Error) {
-        if (error.message.includes('unique') || error.message.includes('duplicate')) {
+      if (err instanceof Error) {
+        if (err.message.includes('unique') || err.message.includes('duplicate')) {
           throw APIError.alreadyExists("An account with this email address already exists");
-        } else if (error.message.includes('connection') || error.message.includes('timeout')) {
+        } else if (err.message.includes('connection') || err.message.includes('timeout')) {
           throw APIError.unavailable("Service temporarily unavailable. Please try again in a moment.");
-        } else if (error.message.includes('password')) {
+        } else if (err.message.includes('password')) {
           throw APIError.internal("Password processing failed. Please try again.");
-        } else if (error.message.includes('JWT') || error.message.includes('token')) {
+        } else if (err.message.includes('JWT') || err.message.includes('token')) {
           throw APIError.internal("Account created but login failed. Please try signing in.");
-        } else if (error.message.includes('database') || error.message.includes('sql')) {
+        } else if (err.message.includes('database') || err.message.includes('sql')) {
           throw APIError.unavailable("Service temporarily unavailable. Please try again later.");
-        } else if (error.message.includes('email')) {
+        } else if (err.message.includes('email')) {
           throw APIError.invalidArgument("Invalid email address format");
         } else {
-          console.error('Unexpected registration error:', error.message);
+          console.error('Unexpected registration error:', err.message);
+          console.error("Detailed registration error:", err);
           throw APIError.internal("Registration failed. Please try again.");
         }
       }
       
-      throw APIError.internal("An unexpected error occurred. Please try again.");
+      console.error("Detailed registration error:", err);
+      throw APIError.internal("Registration failed. Please try again.");
     }
   }
 );
