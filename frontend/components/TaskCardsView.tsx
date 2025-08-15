@@ -41,30 +41,69 @@ function TaskCardsContent() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
 
-  const loadTasks = useCallback(async () => {
+  const loadTasks = useCallback(async (showLoadingState = true) => {
     try {
-      setLoading(true);
+      if (showLoadingState) {
+        setLoading(true);
+      }
       setError(null);
-      const response = await backend.tasks.list();
-      setTasks(response.tasks);
+      
+      // Add timeout to the frontend request as well
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 15000)
+      );
+      
+      const response = await Promise.race([
+        backend.tasks.list(),
+        timeoutPromise
+      ]) as { tasks: Task[] };
+      
+      setTasks(response.tasks || []);
+      setRetryCount(0); // Reset retry count on success
     } catch (error) {
       console.error('Error loading tasks:', error);
+      
+      // Don't show error state immediately, try to retry a few times
+      if (retryCount < 2) {
+        console.log(`Retrying task load (attempt ${retryCount + 1})`);
+        setRetryCount(prev => prev + 1);
+        
+        // Retry after a short delay
+        setTimeout(() => {
+          loadTasks(false);
+        }, 1000 + (retryCount * 1000)); // Exponential backoff
+        
+        return;
+      }
+      
       setError('Failed to load tasks');
-      toast({
-        title: "Error",
-        description: "Failed to load tasks. Please try again.",
-        variant: "destructive",
-      });
+      if (showLoadingState) {
+        toast({
+          title: "Connection Error",
+          description: "Unable to connect to the server. Please check your connection and try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
-      setLoading(false);
+      if (showLoadingState) {
+        setLoading(false);
+      }
     }
-  }, [toast]);
+  }, [toast, retryCount]);
 
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
+
+  // Reset retry count when component unmounts or when switching views
+  useEffect(() => {
+    return () => {
+      setRetryCount(0);
+    };
+  }, []);
 
   // Optimistic update functions
   const updateTaskOptimistically = useCallback((taskId: string, updates: Partial<Task>) => {
@@ -124,13 +163,18 @@ function TaskCardsContent() {
     setTasks(prevTasks => [task, ...prevTasks]);
   }, []);
 
+  const handleRetry = useCallback(() => {
+    setRetryCount(0);
+    loadTasks();
+  }, [loadTasks]);
+
   const filteredTasks = selectedCategory === 'All' 
     ? tasks 
     : tasks.filter(task => 
         task.category.toLowerCase() === selectedCategory.toLowerCase()
       );
 
-  if (loading) {
+  if (loading && retryCount === 0) {
     return (
       <div className="h-full flex flex-col">
         <div className="flex justify-between items-center flex-shrink-0">
@@ -146,7 +190,7 @@ function TaskCardsContent() {
     );
   }
 
-  if (error) {
+  if (error && retryCount >= 2) {
     return (
       <div className="h-full flex flex-col">
         <div className="flex justify-between items-center flex-shrink-0">
@@ -159,7 +203,7 @@ function TaskCardsContent() {
           <div className="text-center">
             <div className="text-muted-foreground mb-4">{error}</div>
             <button 
-              onClick={loadTasks}
+              onClick={handleRetry}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
             >
               Try Again

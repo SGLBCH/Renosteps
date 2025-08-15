@@ -1,41 +1,54 @@
 import { api, APIError } from "encore.dev/api";
-import { tasksDB } from "./db";
-import type { GetTaskParams, Task } from "./types";
+import { tasksDB, withTimeout } from "./db";
 
-// Marks a task as completed and sets progress to 100%.
-export const completeTask = api<GetTaskParams, Task>(
+export interface CompleteTaskRequest {
+  id: string;
+}
+
+export interface CompleteTaskResponse {
+  success: boolean;
+}
+
+// Marks a task as completed with 100% progress.
+export const completeTask = api<CompleteTaskRequest, CompleteTaskResponse>(
   { expose: true, method: "POST", path: "/tasks/:id/complete" },
-  async ({ id }) => {
-    const now = new Date();
-
-    // Check if task exists
-    const existingTask = await tasksDB.queryRow`
-      SELECT id FROM tasks WHERE id = ${id}
-    `;
-
-    if (!existingTask) {
-      throw APIError.notFound("Task not found");
+  async (req): Promise<CompleteTaskResponse> => {
+    if (!req.id?.trim()) {
+      throw APIError.invalidArgument("id is required");
     }
 
-    await tasksDB.exec`
-      UPDATE tasks 
-      SET status = 'completed', progress = 100, updated_at = ${now}
-      WHERE id = ${id}
-    `;
+    try {
+      await withTimeout(async () => {
+        // First check if task exists
+        const existingTask = await tasksDB.queryRow`
+          SELECT id FROM tasks WHERE id = ${req.id}
+        `;
 
-    const updatedTask = await tasksDB.queryRow<Task>`
-      SELECT 
-        id, title, description, category, priority, status, progress,
-        start_date as "startDate", end_date as "endDate",
-        created_at as "createdAt", updated_at as "updatedAt"
-      FROM tasks 
-      WHERE id = ${id}
-    `;
+        if (!existingTask) {
+          throw APIError.notFound("task not found");
+        }
 
-    if (!updatedTask) {
-      throw APIError.internal("Failed to retrieve updated task");
+        // Update task to completed status with 100% progress
+        await tasksDB.exec`
+          UPDATE tasks 
+          SET status = 'completed', progress = 100, updated_at = NOW()
+          WHERE id = ${req.id}
+        `;
+      }, 5000); // 5 second timeout
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error completing task:', error);
+      
+      if (error instanceof APIError) {
+        throw error;
+      }
+      
+      if (error instanceof Error && error.message.includes('timeout')) {
+        throw APIError.deadlineExceeded("Task completion timed out");
+      }
+      
+      throw APIError.internal("Failed to complete task", error);
     }
-
-    return updatedTask;
   }
 );
