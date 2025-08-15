@@ -1,10 +1,23 @@
 import { Progress } from '@/components/ui/progress';
 import { useProjectStats } from '../hooks/useProjectStats';
+import { useProject } from '../contexts/ProjectContext';
 import { CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export function ProjectOverview() {
+  const { currentProject } = useProject();
   const { projectStats, loading, error } = useProjectStats();
+
+  if (!currentProject) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Project Overview</h3>
+        <div className="text-sm text-muted-foreground">
+          No project selected
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -34,7 +47,10 @@ export function ProjectOverview() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Project Overview</h3>
+      <div>
+        <h3 className="text-lg font-semibold">Project Overview</h3>
+        <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+      </div>
       
       <div className="space-y-2">
         <div className="flex justify-between items-center">

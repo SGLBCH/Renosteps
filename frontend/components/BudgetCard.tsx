@@ -1,9 +1,27 @@
 import { DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useBudget } from '../hooks/useBudget';
+import { useProject } from '../contexts/ProjectContext';
+import { useProjectBudget } from '../hooks/useProjectBudget';
 
 export function BudgetCard() {
-  const { budgetSummary, loading, error } = useBudget();
+  const { currentProject } = useProject();
+  const { budgetSummary, loading, error } = useProjectBudget();
+
+  if (!currentProject) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Budget Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">No project selected</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (
@@ -56,6 +74,8 @@ export function BudgetCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="text-xs text-muted-foreground">{currentProject.name}</div>
+        
         <div className="space-y-1">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Total Budget</span>

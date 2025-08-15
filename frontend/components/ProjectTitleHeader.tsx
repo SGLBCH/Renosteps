@@ -4,38 +4,24 @@ import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Edit2, ChevronDown, Plus } from 'lucide-react';
 import { CreateProjectDialog } from './CreateProjectDialog';
-
-interface Project {
-  id: string;
-  name: string;
-  dateRange: string;
-}
-
-// Mock data - in a real app this would come from the backend
-const initialProjects: Project[] = [
-  { id: '1', name: 'Home Renovation Project', dateRange: '1-6-2023 - 30-9-2023' },
-  { id: '2', name: 'Kitchen Remodel', dateRange: '15-10-2023 - 15-12-2023' },
-  { id: '3', name: 'Bathroom Upgrade', dateRange: '1-1-2024 - 28-2-2024' },
-];
+import { useProject } from '../contexts/ProjectContext';
 
 export function ProjectTitleHeader() {
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [currentProject, setCurrentProject] = useState<Project>(projects[0]);
+  const { currentProject, projects, setCurrentProject, updateProject, addProject } = useProject();
   const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(currentProject.name);
+  const [editValue, setEditValue] = useState(currentProject?.name || '');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const handleSaveEdit = () => {
-    const updatedProject = { ...currentProject, name: editValue };
-    setCurrentProject(updatedProject);
-    setProjects(prevProjects => 
-      prevProjects.map(p => p.id === currentProject.id ? updatedProject : p)
-    );
-    setIsEditing(false);
+    if (currentProject && editValue.trim()) {
+      const updatedProject = { ...currentProject, name: editValue.trim() };
+      updateProject(currentProject.id, { name: editValue.trim() });
+      setIsEditing(false);
+    }
   };
 
   const handleCancelEdit = () => {
-    setEditValue(currentProject.name);
+    setEditValue(currentProject?.name || '');
     setIsEditing(false);
   };
 
@@ -47,21 +33,33 @@ export function ProjectTitleHeader() {
     }
   };
 
-  const handleProjectSelect = (project: Project) => {
-    setCurrentProject(project);
-    setEditValue(project.name);
+  const handleProjectSelect = (project: typeof currentProject) => {
+    if (project) {
+      setCurrentProject(project);
+      setEditValue(project.name);
+    }
   };
 
   const handleAddNewProject = () => {
     setShowCreateDialog(true);
   };
 
-  const handleProjectCreated = (newProject: Project) => {
-    setProjects(prevProjects => [...prevProjects, newProject]);
-    setCurrentProject(newProject);
-    setEditValue(newProject.name);
-    setShowCreateDialog(false);
+  const handleProjectCreated = (newProject: typeof currentProject) => {
+    if (newProject) {
+      addProject(newProject);
+      setCurrentProject(newProject);
+      setEditValue(newProject.name);
+      setShowCreateDialog(false);
+    }
   };
+
+  if (!currentProject) {
+    return (
+      <div className="flex items-center gap-3">
+        <div className="text-muted-foreground">Loading project...</div>
+      </div>
+    );
+  }
 
   return (
     <>

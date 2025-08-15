@@ -4,6 +4,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ErrorBoundary } from './ErrorBoundary';
+import { useProject } from '../contexts/ProjectContext';
+import { useProjectTasks } from '../hooks/useProjectTasks';
 import backend from '~backend/client';
 import type { Task } from './TaskCardsView';
 
@@ -20,11 +22,10 @@ interface DragState {
 }
 
 function GanttChartContent() {
+  const { currentProject } = useProject();
+  const { tasks, loading, error, loadTasks } = useProjectTasks();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     taskId: null,
@@ -37,28 +38,8 @@ function GanttChartContent() {
   const { toast } = useToast();
   const ganttRef = useRef<HTMLDivElement>(null);
 
-  const loadTasks = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await backend.tasks.list();
-      setTasks(response.tasks.filter(task => task.startDate && task.endDate));
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-      setError('Failed to load tasks');
-      toast({
-        title: "Error",
-        description: "Failed to load tasks. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadTasks();
-  }, []);
+  // Filter tasks that have both start and end dates
+  const tasksWithDates = tasks.filter(task => task.startDate && task.endDate);
 
   const generateDateHeaders = () => {
     const dates = [];
@@ -278,7 +259,7 @@ function GanttChartContent() {
   const handleMouseUp = async () => {
     if (!dragState.isDragging || !dragState.taskId) return;
     
-    const task = tasks.find(t => t.id === dragState.taskId);
+    const task = tasksWithDates.find(t => t.id === dragState.taskId);
     if (!task) return;
     
     const columnDiff = dragState.currentColumn - dragState.startColumn;
@@ -351,10 +332,24 @@ function GanttChartContent() {
     };
   };
 
-  if (loading) {
+  if (!currentProject) {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-semibold">Gantt Chart</h2>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">No project selected</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold">Gantt Chart</h2>
+          <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+        </div>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted-foreground">Loading tasks...</div>
         </div>
@@ -365,7 +360,10 @@ function GanttChartContent() {
   if (error) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Gantt Chart</h2>
+        <div>
+          <h2 className="text-2xl font-semibold">Gantt Chart</h2>
+          <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+        </div>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="text-muted-foreground mb-4">{error}</div>
@@ -383,7 +381,10 @@ function GanttChartContent() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Gantt Chart</h2>
+      <div>
+        <h2 className="text-2xl font-semibold">Gantt Chart</h2>
+        <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+      </div>
       
       <div className="bg-card border border-border rounded-lg shadow-sm">
         {/* Toolbar */}
@@ -447,12 +448,12 @@ function GanttChartContent() {
 
             {/* Task Rows */}
             <div className="divide-y divide-border">
-              {tasks.length === 0 ? (
+              {tasksWithDates.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
-                  No tasks with start and end dates found. Add dates to your tasks to see them in the Gantt chart.
+                  No tasks with start and end dates found for {currentProject.name}. Add dates to your tasks to see them in the Gantt chart.
                 </div>
               ) : (
-                tasks.map((task) => {
+                tasksWithDates.map((task) => {
                   const barPosition = calculateTaskBarPosition(task);
                   const dragPreviewPosition = getDragPreviewPosition(task);
                   const isDraggingThis = dragState.isDragging && dragState.taskId === task.id;

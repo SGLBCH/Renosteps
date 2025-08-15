@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import backend from '~backend/client';
+import { useState, useEffect, useCallback } from 'react';
+import { useProject } from '../contexts/ProjectContext';
+import { useProjectTasks } from './useProjectTasks';
 import type { Task } from '../components/TaskCardsView';
 
 export interface ProjectStats {
@@ -13,30 +14,22 @@ export interface ProjectStats {
 }
 
 export function useProjectStats() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { currentProject } = useProject();
+  const { tasks, loading: tasksLoading, error: tasksError, loadTasks } = useProjectTasks();
 
-  const loadTasks = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const tasksResponse = await backend.tasks.list();
-      setTasks(tasksResponse.tasks);
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-      setError('Failed to load tasks');
-    } finally {
-      setLoading(false);
+  const calculateProjectStats = useCallback((): ProjectStats => {
+    if (!currentProject || !tasks) {
+      return {
+        totalTasks: 0,
+        completedTasks: 0,
+        inProgressTasks: 0,
+        notStartedTasks: 0,
+        overdueTasks: 0,
+        upcomingTasks: 0,
+        progress: 0,
+      };
     }
-  };
 
-  useEffect(() => {
-    loadTasks();
-  }, []);
-
-  const calculateProjectStats = (): ProjectStats => {
     const now = new Date();
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter(task => task.status === 'completed').length;
@@ -69,14 +62,15 @@ export function useProjectStats() {
       upcomingTasks,
       progress,
     };
-  };
+  }, [currentProject, tasks]);
 
   const projectStats = calculateProjectStats();
 
   return {
     projectStats,
-    loading,
-    error,
+    loading: tasksLoading,
+    error: tasksError,
     refetch: loadTasks,
+    currentProject
   };
 }

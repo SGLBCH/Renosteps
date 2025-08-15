@@ -5,14 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { DollarSign, TrendingUp, TrendingDown, Calendar, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useToast } from '@/components/ui/use-toast';
-import { useBudget } from '../hooks/useBudget';
+import { useProject } from '../contexts/ProjectContext';
+import { useProjectBudget } from '../hooks/useProjectBudget';
 import { useProjectStats } from '../hooks/useProjectStats';
-import backend from '~backend/client';
-import type { Task } from './TaskCardsView';
 
 function DashboardContent() {
+  const { currentProject } = useProject();
   const { projectStats, loading: tasksLoading, error: tasksError, refetch: refetchTasks } = useProjectStats();
-  const { budgetSummary, loading: budgetLoading, error: budgetError } = useBudget();
+  const { budgetSummary, loading: budgetLoading, error: budgetError } = useProjectBudget();
   const { toast } = useToast();
 
   const formatCurrency = (amount: number) => {
@@ -30,11 +30,25 @@ function DashboardContent() {
 
   const isOverBudget = budgetSummary ? budgetSummary.totalExpenses > budgetSummary.totalBudget : false;
 
+  if (!currentProject) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold">Dashboard</h2>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">No project selected</div>
+        </div>
+      </div>
+    );
+  }
+
   // Show loading state only if both are loading
   if (budgetLoading && tasksLoading) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">Dashboard</h2>
+        <div>
+          <h2 className="text-2xl font-semibold">Dashboard</h2>
+          <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+        </div>
         <div className="flex items-center justify-center h-64">
           <div className="text-muted-foreground">Loading dashboard...</div>
         </div>
@@ -44,7 +58,10 @@ function DashboardContent() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Dashboard</h2>
+      <div>
+        <h2 className="text-2xl font-semibold">Dashboard</h2>
+        <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+      </div>
       
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -267,7 +284,7 @@ function DashboardContent() {
 
                 {(!budgetSummary || budgetSummary.categoryBreakdown.length === 0) && (
                   <div className="text-center py-4 text-muted-foreground">
-                    No expenses recorded yet
+                    No expenses recorded yet for {currentProject.name}
                   </div>
                 )}
               </>
@@ -371,7 +388,7 @@ function DashboardContent() {
                       </div>
                     ) : (
                       <div className="text-sm text-muted-foreground">
-                        No completed tasks yet
+                        No completed tasks yet for {currentProject.name}
                       </div>
                     )}
                   </div>

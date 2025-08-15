@@ -9,12 +9,7 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-
-interface Project {
-  id: string;
-  name: string;
-  dateRange: string;
-}
+import type { Project } from '../contexts/ProjectContext';
 
 interface CreateProjectDialogProps {
   open: boolean;

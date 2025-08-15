@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { TaskCard } from './TaskCard';
 import { FilterChips } from './FilterChips';
 import { TaskDialog } from './TaskDialog';
 import { ErrorBoundary } from './ErrorBoundary';
 import { TaskCardErrorBoundary } from './TaskCardErrorBoundary';
 import { useToast } from '@/components/ui/use-toast';
-import backend from '~backend/client';
+import { useProject } from '../contexts/ProjectContext';
+import { useProjectTasks } from '../hooks/useProjectTasks';
 
 export type TaskPriority = 'high' | 'medium' | 'low';
 export type TaskStatus = 'completed' | 'in-progress' | 'not-started';
@@ -37,73 +38,10 @@ export interface Task {
 const categories = ['All', 'Kitchen', 'Bathroom', 'Living Room', 'Bedroom', 'Exterior', 'Other'];
 
 function TaskCardsContent() {
+  const { currentProject } = useProject();
+  const { tasks, setTasks, loading, error, retryCount, loadTasks } = useProjectTasks();
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
-
-  const loadTasks = useCallback(async (showLoadingState = true) => {
-    try {
-      if (showLoadingState) {
-        setLoading(true);
-      }
-      setError(null);
-      
-      // Add timeout to the frontend request as well
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), 15000)
-      );
-      
-      const response = await Promise.race([
-        backend.tasks.list(),
-        timeoutPromise
-      ]) as { tasks: Task[] };
-      
-      setTasks(response.tasks || []);
-      setRetryCount(0); // Reset retry count on success
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-      
-      // Don't show error state immediately, try to retry a few times
-      if (retryCount < 2) {
-        console.log(`Retrying task load (attempt ${retryCount + 1})`);
-        setRetryCount(prev => prev + 1);
-        
-        // Retry after a short delay
-        setTimeout(() => {
-          loadTasks(false);
-        }, 1000 + (retryCount * 1000)); // Exponential backoff
-        
-        return;
-      }
-      
-      setError('Failed to load tasks');
-      if (showLoadingState) {
-        toast({
-          title: "Connection Error",
-          description: "Unable to connect to the server. Please check your connection and try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
-      if (showLoadingState) {
-        setLoading(false);
-      }
-    }
-  }, [toast, retryCount]);
-
-  useEffect(() => {
-    loadTasks();
-  }, [loadTasks]);
-
-  // Reset retry count when component unmounts or when switching views
-  useEffect(() => {
-    return () => {
-      setRetryCount(0);
-    };
-  }, []);
 
   // Optimistic update functions
   const updateTaskOptimistically = useCallback((taskId: string, updates: Partial<Task>) => {
@@ -112,7 +50,7 @@ function TaskCardsContent() {
         task.id === taskId ? { ...task, ...updates } : task
       )
     );
-  }, []);
+  }, [setTasks]);
 
   const updateSubtaskOptimistically = useCallback((taskId: string, subtaskId: string, updates: Partial<Subtask>) => {
     setTasks(prevTasks => 
@@ -127,7 +65,7 @@ function TaskCardsContent() {
           : task
       )
     );
-  }, []);
+  }, [setTasks]);
 
   const addSubtaskOptimistically = useCallback((taskId: string, subtask: Subtask) => {
     setTasks(prevTasks => 
@@ -140,7 +78,7 @@ function TaskCardsContent() {
           : task
       )
     );
-  }, []);
+  }, [setTasks]);
 
   const removeSubtaskOptimistically = useCallback((taskId: string, subtaskId: string) => {
     setTasks(prevTasks => 
@@ -153,18 +91,17 @@ function TaskCardsContent() {
           : task
       )
     );
-  }, []);
+  }, [setTasks]);
 
   const removeTaskOptimistically = useCallback((taskId: string) => {
     setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
-  }, []);
+  }, [setTasks]);
 
   const addTaskOptimistically = useCallback((task: Task) => {
     setTasks(prevTasks => [task, ...prevTasks]);
-  }, []);
+  }, [setTasks]);
 
   const handleRetry = useCallback(() => {
-    setRetryCount(0);
     loadTasks();
   }, [loadTasks]);
 
@@ -173,6 +110,19 @@ function TaskCardsContent() {
     : tasks.filter(task => 
         task.category.toLowerCase() === selectedCategory.toLowerCase()
       );
+
+  if (!currentProject) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="flex justify-between items-center flex-shrink-0">
+          <h2 className="text-2xl font-semibold">Tasks</h2>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-muted-foreground">No project selected</div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading && retryCount === 0) {
     return (
@@ -184,7 +134,7 @@ function TaskCardsContent() {
           </ErrorBoundary>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-muted-foreground">Loading tasks...</div>
+          <div className="text-muted-foreground">Loading tasks for {currentProject.name}...</div>
         </div>
       </div>
     );
@@ -218,7 +168,10 @@ function TaskCardsContent() {
     <div className="h-full flex flex-col">
       {/* Header with Add Task button */}
       <div className="flex justify-between items-center flex-shrink-0 mb-6">
-        <h2 className="text-2xl font-semibold">Tasks</h2>
+        <div>
+          <h2 className="text-2xl font-semibold">Tasks</h2>
+          <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+        </div>
         <ErrorBoundary>
           <TaskDialog 
             onTaskSaved={loadTasks}
@@ -244,8 +197,8 @@ function TaskCardsContent() {
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="text-muted-foreground mb-4">
               {selectedCategory === 'All' 
-                ? 'No tasks found. Create your first task to get started!' 
-                : `No tasks found in the ${selectedCategory} category.`
+                ? `No tasks found for ${currentProject.name}. Create your first task to get started!` 
+                : `No tasks found in the ${selectedCategory} category for ${currentProject.name}.`
               }
             </div>
             <ErrorBoundary>

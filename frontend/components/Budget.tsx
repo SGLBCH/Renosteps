@@ -8,12 +8,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { useProject } from '../contexts/ProjectContext';
+import { useProjectBudget } from '../hooks/useProjectBudget';
 import backend from '~backend/client';
 import type { BudgetExpense } from '~backend/budget/types';
-import { useBudget } from '../hooks/useBudget';
 
 export function Budget() {
-  const { budgetSummary, loading, error, refreshBudget } = useBudget();
+  const { currentProject } = useProject();
+  const { budgetSummary, loading, error, refreshBudget } = useProjectBudget();
   const [expenses, setExpenses] = useState<BudgetExpense[]>([]);
   const [expensesLoading, setExpensesLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -29,10 +31,6 @@ export function Budget() {
   });
 
   const [budgetAmount, setBudgetAmount] = useState('');
-
-  useEffect(() => {
-    fetchExpenses();
-  }, []);
 
   useEffect(() => {
     if (budgetSummary) {
@@ -174,9 +172,24 @@ export function Budget() {
     setIsDialogOpen(true);
   };
 
+  if (!currentProject) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Budget Management</h1>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">No project selected</div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Budget Management</h1>
+          <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+        </div>
         <div className="animate-pulse">
           <div className="h-8 bg-muted rounded w-1/4 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -196,7 +209,10 @@ export function Budget() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Budget Management</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Budget Management</h1>
+          <p className="text-sm text-muted-foreground">{currentProject.name}</p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={openCreateDialog}>
@@ -364,7 +380,7 @@ export function Budget() {
           ) : expenses.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No expenses recorded yet</p>
+              <p>No expenses recorded yet for {currentProject.name}</p>
               <p className="text-sm">Add your first expense to get started</p>
             </div>
           ) : (
