@@ -5,9 +5,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Edit2, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { CreateProjectDialog } from './CreateProjectDialog';
+import { UserMenu } from './UserMenu';
 import { useProject } from '../contexts/ProjectContext';
 import { useToast } from '@/components/ui/use-toast';
-import backend from '~backend/client';
+import { useBackend } from './AuthenticatedBackend';
 
 export function ProjectTitleHeader() {
   const { currentProject, projects, setCurrentProject, updateProject, addProject, removeProject, loading } = useProject();
@@ -18,6 +19,7 @@ export function ProjectTitleHeader() {
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
+  const backend = useBackend();
 
   const handleStartEdit = () => {
     if (currentProject) {
@@ -123,15 +125,18 @@ export function ProjectTitleHeader() {
   // Show loading state
   if (loading) {
     return (
-      <div className="flex items-center gap-3">
-        <div className="animate-pulse">
-          <div className="h-9 bg-muted rounded w-48"></div>
-        </div>
-        <div className="ml-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <div className="animate-pulse">
-            <div className="h-5 bg-muted rounded w-32"></div>
+            <div className="h-9 bg-muted rounded w-48"></div>
+          </div>
+          <div className="ml-4">
+            <div className="animate-pulse">
+              <div className="h-5 bg-muted rounded w-32"></div>
+            </div>
           </div>
         </div>
+        <UserMenu />
       </div>
     );
   }
@@ -140,19 +145,22 @@ export function ProjectTitleHeader() {
   if (!currentProject && projects.length === 0) {
     return (
       <>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 flex-1">
-            <h1 className="text-3xl font-semibold tracking-tight text-muted-foreground">No Projects</h1>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleAddNewProject}
-              className="ml-4"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create First Project
-            </Button>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-1">
+              <h1 className="text-3xl font-semibold tracking-tight text-muted-foreground">No Projects</h1>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleAddNewProject}
+                className="ml-4"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create First Project
+              </Button>
+            </div>
           </div>
+          <UserMenu />
         </div>
 
         <CreateProjectDialog
@@ -168,42 +176,45 @@ export function ProjectTitleHeader() {
   if (!currentProject) {
     return (
       <>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 flex-1">
-            <h1 className="text-3xl font-semibold tracking-tight text-muted-foreground">Select Project</h1>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-4"
-                >
-                  <ChevronDown className="h-4 w-4 mr-2" />
-                  Choose Project
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-80">
-                {projects.map((project) => (
-                  <DropdownMenuItem
-                    key={project.id}
-                    onClick={() => handleProjectSelect(project)}
-                    className="flex flex-col items-start p-3 cursor-pointer"
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-1">
+              <h1 className="text-3xl font-semibold tracking-tight text-muted-foreground">Select Project</h1>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="ml-4"
                   >
-                    <div className="text-2xl font-semibold tracking-tight">{project.name}</div>
-                    <div className="text-sm text-muted-foreground">{project.dateRange}</div>
+                    <ChevronDown className="h-4 w-4 mr-2" />
+                    Choose Project
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-80">
+                  {projects.map((project) => (
+                    <DropdownMenuItem
+                      key={project.id}
+                      onClick={() => handleProjectSelect(project)}
+                      className="flex flex-col items-start p-3 cursor-pointer"
+                    >
+                      <div className="text-2xl font-semibold tracking-tight">{project.name}</div>
+                      <div className="text-sm text-muted-foreground">{project.dateRange}</div>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleAddNewProject}
+                    className="flex items-center gap-2 p-3 cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="text-2xl font-semibold tracking-tight">Add new project</span>
                   </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleAddNewProject}
-                  className="flex items-center gap-2 p-3 cursor-pointer"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="text-2xl font-semibold tracking-tight">Add new project</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
+          <UserMenu />
         </div>
 
         <CreateProjectDialog
@@ -218,48 +229,67 @@ export function ProjectTitleHeader() {
   // Normal state with current project
   return (
     <>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 flex-1">
-          {isEditing ? (
-            <Input
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={handleSaveEdit}
-              onKeyDown={handleKeyDown}
-              className="text-3xl font-semibold tracking-tight h-auto border-none p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-              autoFocus
-              disabled={updating}
-            />
-          ) : (
-            <h1 className="text-3xl font-semibold tracking-tight">{currentProject.name}</h1>
-          )}
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-10 w-10 p-0 opacity-60 hover:opacity-100 transition-opacity"
-              >
-                <ChevronDown className="h-8 w-8 text-2xl font-bold" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-80">
-              {projects.length > 0 ? (
-                <>
-                  {projects.map((project) => (
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            {isEditing ? (
+              <Input
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={handleSaveEdit}
+                onKeyDown={handleKeyDown}
+                className="text-3xl font-semibold tracking-tight h-auto border-none p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                autoFocus
+                disabled={updating}
+              />
+            ) : (
+              <h1 className="text-3xl font-semibold tracking-tight">{currentProject.name}</h1>
+            )}
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-10 w-10 p-0 opacity-60 hover:opacity-100 transition-opacity"
+                >
+                  <ChevronDown className="h-8 w-8 text-2xl font-bold" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-80">
+                {projects.length > 0 ? (
+                  <>
+                    {projects.map((project) => (
+                      <DropdownMenuItem
+                        key={project.id}
+                        onClick={() => handleProjectSelect(project)}
+                        className={`flex flex-col items-start p-3 cursor-pointer ${
+                          currentProject.id === project.id ? 'bg-accent' : ''
+                        }`}
+                      >
+                        <div className="text-2xl font-semibold tracking-tight">{project.name}</div>
+                        <div className="text-sm text-muted-foreground">{project.dateRange}</div>
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      key={project.id}
-                      onClick={() => handleProjectSelect(project)}
-                      className={`flex flex-col items-start p-3 cursor-pointer ${
-                        currentProject.id === project.id ? 'bg-accent' : ''
-                      }`}
+                      onClick={handleAddNewProject}
+                      className="flex items-center gap-2 p-3 cursor-pointer"
                     >
-                      <div className="text-2xl font-semibold tracking-tight">{project.name}</div>
-                      <div className="text-sm text-muted-foreground">{project.dateRange}</div>
+                      <Plus className="h-4 w-4" />
+                      <span className="text-2xl font-semibold tracking-tight">Add new project</span>
                     </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
+                    {projects.length > 1 && (
+                      <DropdownMenuItem
+                        onClick={handleDeleteProject}
+                        className="flex items-center gap-2 p-3 cursor-pointer text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="text-2xl font-semibold tracking-tight">Delete project</span>
+                      </DropdownMenuItem>
+                    )}
+                  </>
+                ) : (
                   <DropdownMenuItem
                     onClick={handleAddNewProject}
                     className="flex items-center gap-2 p-3 cursor-pointer"
@@ -267,42 +297,27 @@ export function ProjectTitleHeader() {
                     <Plus className="h-4 w-4" />
                     <span className="text-2xl font-semibold tracking-tight">Add new project</span>
                   </DropdownMenuItem>
-                  {projects.length > 1 && (
-                    <DropdownMenuItem
-                      onClick={handleDeleteProject}
-                      className="flex items-center gap-2 p-3 cursor-pointer text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span className="text-2xl font-semibold tracking-tight">Delete project</span>
-                    </DropdownMenuItem>
-                  )}
-                </>
-              ) : (
-                <DropdownMenuItem
-                  onClick={handleAddNewProject}
-                  className="flex items-center gap-2 p-3 cursor-pointer"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="text-2xl font-semibold tracking-tight">Add new project</span>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleStartEdit}
-            className="h-8 w-8 p-0 opacity-60 hover:opacity-100 transition-opacity"
-            disabled={updating}
-          >
-            <Edit2 className="h-4 w-4" />
-          </Button>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStartEdit}
+              className="h-8 w-8 p-0 opacity-60 hover:opacity-100 transition-opacity"
+              disabled={updating}
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="ml-4">
+            <p className="text-muted-foreground leading-7">{currentProject.dateRange}</p>
+          </div>
         </div>
 
-        <div className="ml-4">
-          <p className="text-muted-foreground leading-7">{currentProject.dateRange}</p>
-        </div>
+        <UserMenu />
       </div>
 
       <CreateProjectDialog

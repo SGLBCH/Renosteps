@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useProject } from '../contexts/ProjectContext';
-import backend from '~backend/client';
+import { useBackend } from '../components/AuthenticatedBackend';
 import type { Task } from '../components/TaskCardsView';
 
 export function useProjectTasks() {
@@ -9,6 +9,7 @@ export function useProjectTasks() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const backend = useBackend();
 
   const loadTasks = useCallback(async (showLoadingState = true) => {
     // Don't try to load tasks if projects are still loading
@@ -64,7 +65,7 @@ export function useProjectTasks() {
         setLoading(false);
       }
     }
-  }, [currentProject, retryCount, projectLoading]);
+  }, [currentProject, retryCount, projectLoading, backend]);
 
   // Reload tasks when project changes, but only if projects have finished loading
   useEffect(() => {

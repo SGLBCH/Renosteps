@@ -1,11 +1,13 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { tasksDB } from "./db";
 import type { UpdateSubtaskRequest, Subtask } from "./types";
 
 // Updates an existing subtask.
 export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
-  { expose: true, method: "PUT", path: "/subtasks/:id" },
+  { expose: true, method: "PUT", path: "/subtasks/:id", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
     const { id, ...updates } = req;
 
     try {
@@ -15,9 +17,9 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
         throw APIError.invalidArgument("Invalid subtask ID format");
       }
 
-      // Check if subtask exists
+      // Check if subtask exists and belongs to the user
       const existingSubtask = await tasksDB.queryRow`
-        SELECT id FROM subtasks WHERE id = ${subtaskId}
+        SELECT id FROM subtasks WHERE id = ${subtaskId} AND user_id = ${auth.userID}
       `;
 
       if (!existingSubtask) {
@@ -42,12 +44,13 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
       }
 
       updateFields.push("updated_at = NOW()");
+      updateValues.push(auth.userID); // Add user_id for WHERE clause
       updateValues.push(subtaskId); // Use the converted number ID
 
       const query = `
         UPDATE subtasks 
         SET ${updateFields.join(", ")} 
-        WHERE id = $${updateValues.length}
+        WHERE user_id = $${updateValues.length - 1} AND id = $${updateValues.length}
       `;
 
       await tasksDB.rawExec(query, ...updateValues);
@@ -64,7 +67,7 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
         SELECT 
           id, task_id, title, completed, project_id, created_at, updated_at
         FROM subtasks 
-        WHERE id = ${subtaskId}
+        WHERE id = ${subtaskId} AND user_id = ${auth.userID}
       `;
 
       if (!updatedSubtask) {

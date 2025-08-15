@@ -1,4 +1,5 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { projectsDB } from "./db";
 import { tasksDB } from "../tasks/db";
 import { budgetDB } from "../budget/db";
@@ -9,8 +10,10 @@ interface DeleteProjectParams {
 
 // Deletes a project and all associated data.
 export const deleteProject = api<DeleteProjectParams, void>(
-  { expose: true, method: "DELETE", path: "/projects/:id" },
+  { expose: true, method: "DELETE", path: "/projects/:id", auth: true },
   async ({ id }) => {
+    const auth = getAuthData()!;
+    
     // Convert string ID to number for database query
     const projectId = parseInt(id, 10);
     if (isNaN(projectId)) {
@@ -18,9 +21,9 @@ export const deleteProject = api<DeleteProjectParams, void>(
     }
 
     try {
-      // Check if project exists
+      // Check if project exists and belongs to the user
       const existingProject = await projectsDB.queryRow`
-        SELECT id FROM projects WHERE id = ${projectId}
+        SELECT id FROM projects WHERE id = ${projectId} AND user_id = ${auth.userID}
       `;
 
       if (!existingProject) {
@@ -53,7 +56,7 @@ export const deleteProject = api<DeleteProjectParams, void>(
 
       // 5. Finally delete the project itself (using numeric ID) - from projects database
       await projectsDB.exec`
-        DELETE FROM projects WHERE id = ${projectId}
+        DELETE FROM projects WHERE id = ${projectId} AND user_id = ${auth.userID}
       `;
 
     } catch (error) {

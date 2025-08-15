@@ -1,11 +1,14 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { tasksDB } from "./db";
 import type { GetTaskParams, Task, Subtask } from "./types";
 
 // Retrieves a specific task by ID with its subtasks.
 export const get = api<GetTaskParams, Task>(
-  { expose: true, method: "GET", path: "/tasks/:id" },
+  { expose: true, method: "GET", path: "/tasks/:id", auth: true },
   async ({ id }) => {
+    const auth = getAuthData()!;
+    
     try {
       // Convert string ID to number for database query
       const taskId = parseInt(id, 10);
@@ -31,7 +34,7 @@ export const get = api<GetTaskParams, Task>(
           id, title, description, category, priority, status, progress,
           start_date, end_date, project_id, created_at, updated_at
         FROM tasks 
-        WHERE id = ${taskId}
+        WHERE id = ${taskId} AND user_id = ${auth.userID}
       `;
 
       if (!task) {
@@ -52,7 +55,7 @@ export const get = api<GetTaskParams, Task>(
         SELECT 
           id, task_id, title, completed, project_id, created_at, updated_at
         FROM subtasks 
-        WHERE task_id = ${taskId}
+        WHERE task_id = ${taskId} AND user_id = ${auth.userID}
         ORDER BY created_at ASC
       `;
 

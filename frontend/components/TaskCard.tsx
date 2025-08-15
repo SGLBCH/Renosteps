@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { TaskDialog } from './TaskDialog';
 import { ErrorBoundary } from './ErrorBoundary';
-import backend from '~backend/client';
+import { useBackend } from './AuthenticatedBackend';
 import type { Task, Subtask } from './TaskCardsView';
 
 interface TaskCardProps {
@@ -46,6 +46,7 @@ function TaskCardContent({
     subtaskToggle: null,
   });
   const { toast } = useToast();
+  const backend = useBackend();
 
   const getPriorityVariant = (priority: string) => {
     switch (priority) {

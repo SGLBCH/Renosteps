@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { useProject } from '../contexts/ProjectContext';
-import backend from '~backend/client';
+import { useBackend } from './AuthenticatedBackend';
 import type { Task, TaskPriority, TaskStatus } from './TaskCardsView';
 
 interface TaskDialogProps {
@@ -43,6 +43,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const backend = useBackend();
 
   const [formData, setFormData] = useState<TaskFormData>({
     title: '',

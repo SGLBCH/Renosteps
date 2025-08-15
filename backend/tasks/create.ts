@@ -1,11 +1,14 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { tasksDB, withTimeout } from "./db";
 import { CreateTaskRequest, Task } from "./types";
 
 // Creates a new task.
 export const create = api<CreateTaskRequest, Task>(
-  { expose: true, method: "POST", path: "/tasks" },
+  { expose: true, method: "POST", path: "/tasks", auth: true },
   async (req): Promise<Task> => {
+    const auth = getAuthData()!;
+    
     if (!req.title?.trim()) {
       throw APIError.invalidArgument("title is required");
     }
@@ -29,8 +32,8 @@ export const create = api<CreateTaskRequest, Task>(
           created_at: Date;
           updated_at: Date;
         }>`
-          INSERT INTO tasks (title, description, category, priority, status, progress, start_date, end_date, project_id, created_at, updated_at)
-          VALUES (${req.title.trim()}, ${req.description?.trim() || null}, ${req.category || "other"}, ${req.priority || "medium"}, ${req.status || "not-started"}, ${req.progress || 0}, ${req.startDate || null}, ${req.endDate || null}, ${projectId}, NOW(), NOW())
+          INSERT INTO tasks (title, description, category, priority, status, progress, start_date, end_date, project_id, user_id, created_at, updated_at)
+          VALUES (${req.title.trim()}, ${req.description?.trim() || null}, ${req.category || "other"}, ${req.priority || "medium"}, ${req.status || "not-started"}, ${req.progress || 0}, ${req.startDate || null}, ${req.endDate || null}, ${projectId}, ${auth.userID}, NOW(), NOW())
           RETURNING id, title, description, category, priority, status, progress, 
                     start_date, end_date, project_id, created_at, updated_at
         `;

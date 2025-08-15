@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import backend from '~backend/client';
+import { useBackend } from '../components/AuthenticatedBackend';
 import type { Project as BackendProject } from '~backend/projects/types';
 
 export interface Project {
@@ -52,6 +52,7 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const backend = useBackend();
 
   // Load projects from backend
   useEffect(() => {
@@ -97,7 +98,7 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
     };
 
     loadProjects();
-  }, []);
+  }, [backend]);
 
   const setCurrentProject = (project: Project) => {
     setCurrentProjectState(project);

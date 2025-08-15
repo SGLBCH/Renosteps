@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useProject } from '../contexts/ProjectContext';
-import backend from '~backend/client';
+import { useBackend } from '../components/AuthenticatedBackend';
 import type { BudgetSummaryResponse } from '~backend/budget/types';
 
 export interface BudgetSummary {
@@ -22,6 +22,7 @@ export function useProjectBudget() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const backend = useBackend();
 
   const fetchBudgetSummary = useCallback(async (showLoadingState = true) => {
     // Don't try to load budget if projects are still loading
@@ -98,7 +99,7 @@ export function useProjectBudget() {
         setLoading(false);
       }
     }
-  }, [currentProject, projectLoading, retryCount]);
+  }, [currentProject, projectLoading, retryCount, backend]);
 
   useEffect(() => {
     if (!projectLoading) {

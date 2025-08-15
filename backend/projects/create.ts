@@ -1,11 +1,14 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { projectsDB } from "./db";
 import type { CreateProjectRequest, Project } from "./types";
 
 // Creates a new project.
 export const create = api<CreateProjectRequest, Project>(
-  { expose: true, method: "POST", path: "/projects" },
+  { expose: true, method: "POST", path: "/projects", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    
     if (!req.name.trim()) {
       throw APIError.invalidArgument("Project name is required");
     }
@@ -22,8 +25,8 @@ export const create = api<CreateProjectRequest, Project>(
       created_at: Date;
       updated_at: Date;
     }>`
-      INSERT INTO projects (name, start_date, end_date)
-      VALUES (${req.name.trim()}, ${req.startDate}, ${req.endDate})
+      INSERT INTO projects (name, start_date, end_date, user_id)
+      VALUES (${req.name.trim()}, ${req.startDate}, ${req.endDate}, ${auth.userID})
       RETURNING id, name, start_date, end_date, created_at, updated_at
     `;
 

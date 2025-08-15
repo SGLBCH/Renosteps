@@ -1,11 +1,13 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { budgetDB } from "./db";
 import type { UpdateExpenseRequest, BudgetExpense } from "./types";
 
 // Updates an existing budget expense.
 export const updateExpense = api<UpdateExpenseRequest, BudgetExpense>(
-  { expose: true, method: "PUT", path: "/budget/expenses/:id" },
+  { expose: true, method: "PUT", path: "/budget/expenses/:id", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
     const { id, ...updates } = req;
     const now = new Date();
 
@@ -46,12 +48,13 @@ export const updateExpense = api<UpdateExpenseRequest, BudgetExpense>(
 
     updateFields.push(`updated_at = $${paramIndex++}`);
     updateValues.push(now);
+    updateValues.push(auth.userID); // Add user_id for WHERE clause
     updateValues.push(id);
 
     const query = `
       UPDATE budget_expenses 
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex}
+      WHERE user_id = $${paramIndex++} AND id = $${paramIndex}
       RETURNING 
         id, category, description, amount, date, project_id as "projectId",
         created_at as "createdAt", updated_at as "updatedAt"

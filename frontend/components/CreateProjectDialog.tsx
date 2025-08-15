@@ -9,7 +9,7 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
-import backend from '~backend/client';
+import { useBackend } from './AuthenticatedBackend';
 import type { Project } from '../contexts/ProjectContext';
 
 interface CreateProjectDialogProps {
@@ -24,6 +24,7 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const backend = useBackend();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

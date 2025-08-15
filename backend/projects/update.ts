@@ -1,4 +1,5 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { projectsDB } from "./db";
 import type { UpdateProjectRequest, Project } from "./types";
 
@@ -8,8 +9,9 @@ interface UpdateProjectParams {
 
 // Updates an existing project.
 export const update = api<UpdateProjectParams & UpdateProjectRequest, Project>(
-  { expose: true, method: "PUT", path: "/projects/:id" },
+  { expose: true, method: "PUT", path: "/projects/:id", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
     const { id, ...updates } = req;
 
     if (updates.name !== undefined && !updates.name.trim()) {
@@ -51,12 +53,13 @@ export const update = api<UpdateProjectParams & UpdateProjectRequest, Project>(
     }
 
     updateFields.push(`updated_at = NOW()`);
+    updateValues.push(auth.userID); // Add user_id for WHERE clause
     updateValues.push(projectId); // Use the converted number ID
 
     const query = `
       UPDATE projects 
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex}
+      WHERE user_id = $${paramIndex++} AND id = $${paramIndex}
       RETURNING id, name, start_date, end_date, created_at, updated_at
     `;
 

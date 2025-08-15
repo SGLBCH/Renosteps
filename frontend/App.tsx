@@ -4,6 +4,8 @@ import { Sidebar } from './components/Sidebar';
 import { MainContent } from './components/MainContent';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProjectProvider } from './contexts/ProjectContext';
+import { AuthProvider, useAuth } from './components/AuthProvider';
+import { AuthScreen } from './components/AuthScreen';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -17,7 +19,20 @@ const queryClient = new QueryClient({
 });
 
 function AppInner() {
+  const { user, loading } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
 
   return (
     <ProjectProvider>
@@ -48,7 +63,9 @@ function AppInner() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppInner />
+      <AuthProvider>
+        <AppInner />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

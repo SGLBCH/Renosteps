@@ -1,4 +1,5 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { tasksDB, withTimeout } from "./db";
 import type { Task } from "./types";
 
@@ -8,8 +9,10 @@ export interface CompleteTaskRequest {
 
 // Marks a task as completed with 100% progress.
 export const completeTask = api<CompleteTaskRequest, Task>(
-  { expose: true, method: "POST", path: "/tasks/:id/complete" },
+  { expose: true, method: "POST", path: "/tasks/:id/complete", auth: true },
   async (req): Promise<Task> => {
+    const auth = getAuthData()!;
+    
     if (!req.id?.trim()) {
       throw APIError.invalidArgument("id is required");
     }
@@ -22,7 +25,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
       }
 
       const task = await withTimeout(async () => {
-        // First check if task exists and update it
+        // First check if task exists and belongs to the user, then update it
         const row = await tasksDB.queryRow<{
           id: number;
           title: string;
@@ -39,7 +42,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
         }>`
           UPDATE tasks 
           SET status = 'completed', progress = 100, updated_at = NOW()
-          WHERE id = ${taskId}
+          WHERE id = ${taskId} AND user_id = ${auth.userID}
           RETURNING id, title, description, category, priority, status, progress, 
                     start_date, end_date, project_id, created_at, updated_at
         `;
@@ -60,7 +63,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
         }>`
           SELECT id, task_id, title, completed, project_id, created_at, updated_at
           FROM subtasks 
-          WHERE task_id = ${taskId}
+          WHERE task_id = ${taskId} AND user_id = ${auth.userID}
           ORDER BY created_at ASC
         `;
 

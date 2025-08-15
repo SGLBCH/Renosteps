@@ -1,4 +1,5 @@
 import { api } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { tasksDB, withTimeout } from "./db";
 import { Task, Subtask, ListTasksRequest } from "./types";
 
@@ -6,10 +7,12 @@ export interface ListTasksResponse {
   tasks: Task[];
 }
 
-// Lists all tasks with their subtasks, optionally filtered by project.
+// Lists all tasks with their subtasks for the authenticated user, optionally filtered by project.
 export const list = api<ListTasksRequest, ListTasksResponse>(
-  { expose: true, method: "GET", path: "/tasks" },
+  { expose: true, method: "GET", path: "/tasks", auth: true },
   async (req): Promise<ListTasksResponse> => {
+    const auth = getAuthData()!;
+    
     try {
       // Use timeout wrapper for database operations
       const tasks = await withTimeout(async () => {
@@ -17,12 +20,13 @@ export const list = api<ListTasksRequest, ListTasksResponse>(
           SELECT id, title, description, category, priority, status, progress, 
                  start_date, end_date, project_id, created_at, updated_at
           FROM tasks 
+          WHERE user_id = $1
         `;
         
-        const queryParams: any[] = [];
+        const queryParams: any[] = [auth.userID];
         
         if (req.projectId) {
-          taskQuery += ` WHERE project_id = $1`;
+          taskQuery += ` AND project_id = $2`;
           queryParams.push(req.projectId);
         }
         
@@ -53,13 +57,13 @@ export const list = api<ListTasksRequest, ListTasksResponse>(
         let subtaskQuery = `
           SELECT id, task_id, title, completed, project_id, created_at, updated_at
           FROM subtasks 
-          WHERE task_id = ANY($1)
+          WHERE task_id = ANY($1) AND user_id = $2
         `;
         
-        const subtaskParams = [taskIds];
+        const subtaskParams = [taskIds, auth.userID];
         
         if (req.projectId) {
-          subtaskQuery += ` AND project_id = $2`;
+          subtaskQuery += ` AND project_id = $3`;
           subtaskParams.push(req.projectId);
         }
         

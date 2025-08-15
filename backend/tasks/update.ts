@@ -1,11 +1,14 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { tasksDB, withTimeout } from "./db";
 import { UpdateTaskRequest, Task } from "./types";
 
 // Updates an existing task.
 export const update = api<UpdateTaskRequest, Task>(
-  { expose: true, method: "PUT", path: "/tasks/:id" },
+  { expose: true, method: "PUT", path: "/tasks/:id", auth: true },
   async (req): Promise<Task> => {
+    const auth = getAuthData()!;
+    
     if (!req.id?.trim()) {
       throw APIError.invalidArgument("id is required");
     }
@@ -22,9 +25,9 @@ export const update = api<UpdateTaskRequest, Task>(
       }
 
       const task = await withTimeout(async () => {
-        // First check if task exists
+        // First check if task exists and belongs to the user
         const existingTask = await tasksDB.queryRow`
-          SELECT id FROM tasks WHERE id = ${taskId}
+          SELECT id FROM tasks WHERE id = ${taskId} AND user_id = ${auth.userID}
         `;
 
         if (!existingTask) {
@@ -86,12 +89,13 @@ export const update = api<UpdateTaskRequest, Task>(
         }
 
         updateFields.push(`updated_at = NOW()`);
+        updateValues.push(auth.userID); // Add user_id for WHERE clause
         updateValues.push(taskId); // Use the converted number ID
 
         const query = `
           UPDATE tasks 
           SET ${updateFields.join(', ')}
-          WHERE id = $${paramIndex}
+          WHERE user_id = $${paramIndex++} AND id = $${paramIndex}
           RETURNING id, title, description, category, priority, status, progress, 
                     start_date, end_date, project_id, created_at, updated_at
         `;
@@ -127,7 +131,7 @@ export const update = api<UpdateTaskRequest, Task>(
         }>`
           SELECT id, task_id, title, completed, project_id, created_at, updated_at
           FROM subtasks 
-          WHERE task_id = ${taskId}
+          WHERE task_id = ${taskId} AND user_id = ${auth.userID}
           ORDER BY created_at ASC
         `;
 

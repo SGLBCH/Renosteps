@@ -1,11 +1,14 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { tasksDB } from "./db";
 import type { CreateSubtaskRequest, Subtask } from "./types";
 
 // Creates a new subtask for a task.
 export const createSubtask = api<CreateSubtaskRequest, Subtask>(
-  { expose: true, method: "POST", path: "/tasks/:taskId/subtasks" },
+  { expose: true, method: "POST", path: "/tasks/:taskId/subtasks", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    
     if (!req.title?.trim()) {
       throw APIError.invalidArgument("title is required");
     }
@@ -17,12 +20,12 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
         throw APIError.invalidArgument("Invalid task ID format");
       }
 
-      // Check if parent task exists and get its project_id
+      // Check if parent task exists and belongs to the user
       const parentTask = await tasksDB.queryRow<{
         id: number;
         project_id: string | null;
       }>`
-        SELECT id, project_id FROM tasks WHERE id = ${taskId}
+        SELECT id, project_id FROM tasks WHERE id = ${taskId} AND user_id = ${auth.userID}
       `;
 
       if (!parentTask) {
@@ -41,8 +44,8 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
         created_at: Date;
         updated_at: Date;
       }>`
-        INSERT INTO subtasks (task_id, title, completed, project_id, created_at, updated_at)
-        VALUES (${taskId}, ${req.title.trim()}, false, ${projectId}, NOW(), NOW())
+        INSERT INTO subtasks (task_id, title, completed, project_id, user_id, created_at, updated_at)
+        VALUES (${taskId}, ${req.title.trim()}, false, ${projectId}, ${auth.userID}, NOW(), NOW())
         RETURNING id, task_id, title, completed, project_id, created_at, updated_at
       `;
 
