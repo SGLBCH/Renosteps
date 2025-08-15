@@ -47,9 +47,9 @@ export function useProjectBudget() {
         setTimeout(() => reject(new Error('Request timeout')), 15000)
       );
       
-      // Pass the project ID to filter budget data
+      // Pass the project ID as string to filter budget data
       const summary = await Promise.race([
-        backend.budget.getSummary({ projectId: currentProject.id }),
+        backend.budget.getSummary({ projectId: String(currentProject.id) }),
         timeoutPromise
       ]) as BudgetSummaryResponse;
       

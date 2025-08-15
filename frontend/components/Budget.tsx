@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { useProject } from '../contexts/ProjectContext';
@@ -99,7 +99,7 @@ export function Budget() {
           description: formData.description,
           category: formData.category,
           date: new Date(formData.date),
-          projectId: currentProject.id
+          projectId: String(currentProject.id) // Convert to string
         });
         
         toast({
@@ -114,7 +114,7 @@ export function Budget() {
           description: formData.description,
           category: formData.category,
           date: new Date(formData.date),
-          projectId: currentProject.id
+          projectId: String(currentProject.id) // Convert to string
         });
         
         toast({
@@ -182,7 +182,7 @@ export function Budget() {
       
       await backend.budget.updateBudget({ 
         totalBudget: amount,
-        projectId: currentProject.id
+        projectId: String(currentProject.id) // Convert to string
       });
       
       toast({
@@ -359,6 +359,12 @@ export function Budget() {
               <DialogTitle>
                 {editingExpense ? 'Edit Expense' : 'Add New Expense'}
               </DialogTitle>
+              <DialogDescription>
+                {editingExpense 
+                  ? 'Update the expense details below.' 
+                  : 'Fill in the details to add a new expense to your budget.'
+                }
+              </DialogDescription>
             </DialogHeader>
             
             {apiError && (
