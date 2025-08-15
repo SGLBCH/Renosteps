@@ -38,12 +38,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Check for existing token on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('authToken');
-    if (savedToken) {
-      setToken(savedToken);
-      
-      // Verify the token by calling the /auth/me endpoint
-      const verifyToken = async () => {
+    const verifyAndSetUser = async () => {
+      const savedToken = localStorage.getItem('authToken');
+      if (savedToken) {
+        setToken(savedToken);
         try {
           const authenticatedBackend = backend.with({
             auth: async () => ({
@@ -64,11 +62,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setToken(null);
           setUser(null);
         }
-      };
-      
-      verifyToken();
-    }
-    setLoading(false);
+      }
+      setLoading(false);
+    };
+
+    verifyAndSetUser();
   }, []);
 
   const login = async (email: string, password: string) => {
