@@ -1,35 +1,44 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { ExternalLink, Trash2, FileImage, Edit, AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import backend from '~backend/client';
 import { useQueryClient } from '@tanstack/react-query';
+import backend from '~backend/client';
 import type { Inspiration } from '~backend/inspiration/types';
+import { EditInspirationDialog } from './EditInspirationDialog';
 
 interface InspirationCardProps {
   inspiration: Inspiration;
-  onUpdate?: () => void;
 }
 
-export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps) {
+export function InspirationCard({ inspiration }: InspirationCardProps) {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this inspiration?')) {
-      return;
-    }
-
     setIsDeleting(true);
-    
     try {
-      await backend.inspiration.deleteInspiration({ id: inspiration.id });
+      await backend.inspiration.delete({ id: inspiration.id });
       
       // Refresh the inspiration list
       queryClient.invalidateQueries({ queryKey: ['inspiration', inspiration.projectId] });
@@ -38,155 +47,100 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
         title: "Success",
         description: "Inspiration deleted successfully",
       });
-      
-      onUpdate?.();
     } catch (error) {
       console.error('Failed to delete inspiration:', error);
-      
-      let errorMessage = "Failed to delete inspiration";
-      if (error instanceof Error) {
-        if (error.message.includes('timeout')) {
-          errorMessage = "Request timed out. Please try again.";
-        } else if (error.message.includes('network')) {
-          errorMessage = "Network error. Please check your connection.";
-        } else if (error.message.includes('not found')) {
-          errorMessage = "Inspiration not found. It may have already been deleted.";
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
       toast({
         title: "Error",
-        description: errorMessage,
+        description: "Failed to delete inspiration",
         variant: "destructive",
       });
     } finally {
       setIsDeleting(false);
-    }
-  };
-
-  const handleImageLoad = () => {
-    setImageLoading(false);
-    setImageError(false);
-  };
-
-  const handleImageError = () => {
-    setImageLoading(false);
-    setImageError(true);
-    console.error('Failed to load image:', inspiration.fileUrl);
-  };
-
-  const handleImageClick = () => {
-    if (inspiration.fileUrl && !imageError) {
-      window.open(inspiration.fileUrl, '_blank');
+      setShowDeleteDialog(false);
     }
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-lg line-clamp-2">{inspiration.title}</CardTitle>
-          <div className="flex items-center space-x-1 ml-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={true} // TODO: Implement edit functionality
-              title="Edit inspiration (coming soon)"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
+    <>
+      <Card className="group relative overflow-hidden hover:shadow-md transition-shadow">
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="aspect-square relative">
+          <img
+            src={inspiration.fileUrl}
+            alt={inspiration.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        
+        <CardContent className="p-4">
+          <h3 className="font-semibold text-sm mb-1 line-clamp-2">
+            {inspiration.title}
+          </h3>
+          {inspiration.description && (
+            <p className="text-xs text-muted-foreground line-clamp-3">
+              {inspiration.description}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Dialog */}
+      <EditInspirationDialog
+        inspiration={inspiration}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Inspiration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{inspiration.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               onClick={handleDelete}
               disabled={isDeleting}
-              title="Delete inspiration"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />
+                  Deleting...
+                </>
               ) : (
-                <Trash2 className="h-4 w-4" />
+                'Delete'
               )}
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="flex-1 flex flex-col space-y-3">
-        {/* Image Display */}
-        {inspiration.fileUrl && (
-          <div className="w-full h-48 rounded-lg overflow-hidden bg-muted relative">
-            {imageLoading && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              </div>
-            )}
-            
-            {imageError ? (
-              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-                <AlertCircle className="h-8 w-8 mb-2" />
-                <p className="text-sm text-center">Failed to load image</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setImageError(false);
-                    setImageLoading(true);
-                  }}
-                  className="mt-2"
-                >
-                  Retry
-                </Button>
-              </div>
-            ) : (
-              <img 
-                src={inspiration.fileUrl} 
-                alt={inspiration.title}
-                className={`w-full h-full object-cover hover:scale-105 transition-transform duration-200 cursor-pointer ${
-                  imageLoading ? 'opacity-0' : 'opacity-100'
-                }`}
-                onClick={handleImageClick}
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-                loading="lazy"
-              />
-            )}
-          </div>
-        )}
-
-        {inspiration.description && (
-          <p className="text-sm text-muted-foreground line-clamp-3">
-            {inspiration.description}
-          </p>
-        )}
-        
-        <div className="flex flex-wrap gap-2 mt-auto">
-          {inspiration.fileUrl && !imageError && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleImageClick}
-              className="flex items-center space-x-1"
-              title="View full size image"
-            >
-              <FileImage className="h-3 w-3" />
-              <span>View Image</span>
-            </Button>
-          )}
-          
-          {inspiration.category && (
-            <Badge variant="secondary" className="text-xs">
-              {inspiration.category}
-            </Badge>
-          )}
-          
-          <Badge variant="secondary" className="text-xs">
-            {new Date(inspiration.createdAt).toLocaleDateString()}
-          </Badge>
-        </div>
-      </CardContent>
-    </Card>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
