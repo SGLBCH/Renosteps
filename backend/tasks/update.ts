@@ -15,10 +15,16 @@ export const update = api<UpdateTaskRequest, Task>(
     }
 
     try {
+      // Convert string ID to number for database query
+      const taskId = parseInt(req.id, 10);
+      if (isNaN(taskId)) {
+        throw APIError.invalidArgument("Invalid task ID format");
+      }
+
       const task = await withTimeout(async () => {
         // First check if task exists
         const existingTask = await tasksDB.queryRow`
-          SELECT id FROM tasks WHERE id = ${req.id}
+          SELECT id FROM tasks WHERE id = ${taskId}
         `;
 
         if (!existingTask) {
@@ -75,7 +81,7 @@ export const update = api<UpdateTaskRequest, Task>(
         }
 
         updateFields.push(`updated_at = NOW()`);
-        updateValues.push(req.id);
+        updateValues.push(taskId); // Use the converted number ID
 
         const query = `
           UPDATE tasks 
@@ -114,7 +120,7 @@ export const update = api<UpdateTaskRequest, Task>(
         }>`
           SELECT id, task_id, title, completed, created_at, updated_at
           FROM subtasks 
-          WHERE task_id = ${req.id}
+          WHERE task_id = ${taskId}
           ORDER BY created_at ASC
         `;
 

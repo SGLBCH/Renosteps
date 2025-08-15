@@ -36,6 +36,15 @@ function TaskCardContent({
   const [editingSubtask, setEditingSubtask] = useState<string | null>(null);
   const [editSubtaskTitle, setEditSubtaskTitle] = useState('');
   const [showAllSubtasks, setShowAllSubtasks] = useState(false);
+  const [operationLoading, setOperationLoading] = useState<{
+    delete: boolean;
+    complete: boolean;
+    subtaskToggle: string | null;
+  }>({
+    delete: false,
+    complete: false,
+    subtaskToggle: null,
+  });
   const { toast } = useToast();
 
   const getPriorityVariant = (priority: string) => {
@@ -92,11 +101,14 @@ function TaskCardContent({
       return;
     }
 
-    // Optimistically remove the task
-    onTaskDeleted(task.id);
+    setOperationLoading(prev => ({ ...prev, delete: true }));
 
     try {
       await backend.tasks.deleteTask({ id: task.id });
+      
+      // Only update UI after successful API call
+      onTaskDeleted(task.id);
+      
       toast({
         title: "Task deleted",
         description: "The task has been successfully deleted.",
@@ -108,17 +120,20 @@ function TaskCardContent({
         description: "Failed to delete the task. Please try again.",
         variant: "destructive",
       });
-      // Revert by reloading tasks
-      onError();
+    } finally {
+      setOperationLoading(prev => ({ ...prev, delete: false }));
     }
   };
 
   const handleCompleteTask = async () => {
-    // Optimistically update the task
-    onTaskUpdated(task.id, { status: 'completed', progress: 100 });
+    setOperationLoading(prev => ({ ...prev, complete: true }));
 
     try {
-      await backend.tasks.completeTask({ id: task.id });
+      const updatedTask = await backend.tasks.completeTask({ id: task.id });
+      
+      // Update UI with the response from the server
+      onTaskUpdated(task.id, updatedTask);
+      
       toast({
         title: "Task completed",
         description: "The task has been marked as completed.",
@@ -130,8 +145,8 @@ function TaskCardContent({
         description: "Failed to complete the task. Please try again.",
         variant: "destructive",
       });
-      // Revert by reloading tasks
-      onError();
+    } finally {
+      setOperationLoading(prev => ({ ...prev, complete: false }));
     }
   };
 
@@ -145,14 +160,14 @@ function TaskCardContent({
         title: newSubtaskTitle.trim(),
       });
       
-      // Optimistically add the subtask
+      // Add the subtask with the response from the server
       const newSubtask: Subtask = {
         id: response.id,
-        taskId: task.id,
-        title: newSubtaskTitle.trim(),
-        completed: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        taskId: response.taskId,
+        title: response.title,
+        completed: response.completed,
+        createdAt: response.createdAt,
+        updatedAt: response.updatedAt,
       };
       
       onSubtaskAdded(task.id, newSubtask);
@@ -176,13 +191,18 @@ function TaskCardContent({
   };
 
   const handleToggleSubtask = async (subtask: Subtask) => {
-    // Optimistically update the subtask
-    onSubtaskUpdated(task.id, subtask.id, { completed: !subtask.completed });
+    setOperationLoading(prev => ({ ...prev, subtaskToggle: subtask.id }));
 
     try {
-      await backend.tasks.updateSubtask({
+      const updatedSubtask = await backend.tasks.updateSubtask({
         id: subtask.id,
         completed: !subtask.completed,
+      });
+      
+      // Update UI with the response from the server
+      onSubtaskUpdated(task.id, subtask.id, {
+        completed: updatedSubtask.completed,
+        updatedAt: updatedSubtask.updatedAt,
       });
     } catch (error) {
       console.error('Error updating subtask:', error);
@@ -191,8 +211,8 @@ function TaskCardContent({
         description: "Failed to update the subtask. Please try again.",
         variant: "destructive",
       });
-      // Revert by reloading tasks
-      onError();
+    } finally {
+      setOperationLoading(prev => ({ ...prev, subtaskToggle: null }));
     }
   };
 
@@ -204,16 +224,21 @@ function TaskCardContent({
   const handleSaveSubtaskEdit = async (subtaskId: string) => {
     if (!editSubtaskTitle.trim()) return;
 
-    // Optimistically update the subtask
-    onSubtaskUpdated(task.id, subtaskId, { title: editSubtaskTitle.trim() });
-
     try {
-      await backend.tasks.updateSubtask({
+      const updatedSubtask = await backend.tasks.updateSubtask({
         id: subtaskId,
         title: editSubtaskTitle.trim(),
       });
+      
+      // Update UI with the response from the server
+      onSubtaskUpdated(task.id, subtaskId, {
+        title: updatedSubtask.title,
+        updatedAt: updatedSubtask.updatedAt,
+      });
+      
       setEditingSubtask(null);
       setEditSubtaskTitle('');
+      
       toast({
         title: "Subtask updated",
         description: "The subtask has been successfully updated.",
@@ -225,8 +250,6 @@ function TaskCardContent({
         description: "Failed to update the subtask. Please try again.",
         variant: "destructive",
       });
-      // Revert by reloading tasks
-      onError();
     }
   };
 
@@ -240,11 +263,12 @@ function TaskCardContent({
       return;
     }
 
-    // Optimistically remove the subtask
-    onSubtaskDeleted(task.id, subtaskId);
-
     try {
       await backend.tasks.deleteSubtask({ id: subtaskId });
+      
+      // Only update UI after successful API call
+      onSubtaskDeleted(task.id, subtaskId);
+      
       toast({
         title: "Subtask deleted",
         description: "The subtask has been successfully deleted.",
@@ -256,8 +280,6 @@ function TaskCardContent({
         description: "Failed to delete the subtask. Please try again.",
         variant: "destructive",
       });
-      // Revert by reloading tasks
-      onError();
     }
   };
 
@@ -295,9 +317,14 @@ function TaskCardContent({
             size="icon" 
             className="h-8 w-8 text-green-600 hover:text-green-700"
             onClick={handleCompleteTask}
+            disabled={operationLoading.complete}
             title="Mark as completed"
           >
-            <Check className="h-4 w-4" />
+            {operationLoading.complete ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
           </Button>
         )}
         <ErrorBoundary>
@@ -308,8 +335,13 @@ function TaskCardContent({
           size="icon" 
           className="h-8 w-8 text-destructive hover:text-destructive"
           onClick={handleDelete}
+          disabled={operationLoading.delete}
         >
-          <Trash2 className="h-4 w-4" />
+          {operationLoading.delete ? (
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+          ) : (
+            <Trash2 className="h-4 w-4" />
+          )}
         </Button>
       </div>
 
@@ -357,6 +389,7 @@ function TaskCardContent({
                       <Checkbox
                         checked={subtask.completed}
                         onCheckedChange={() => handleToggleSubtask(subtask)}
+                        disabled={operationLoading.subtaskToggle === subtask.id}
                         className="h-4 w-4 flex-shrink-0"
                       />
                       {editingSubtask === subtask.id ? (
@@ -475,7 +508,7 @@ function TaskCardContent({
                     disabled={loading || !newSubtaskTitle.trim()}
                     className="h-8 px-3"
                   >
-                    Add
+                    {loading ? 'Adding...' : 'Add'}
                   </Button>
                   <Button
                     variant="ghost"

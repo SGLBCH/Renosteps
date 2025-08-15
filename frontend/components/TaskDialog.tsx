@@ -86,31 +86,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
     try {
       if (task) {
         // Update existing task
-        const updatedTaskData = {
-          id: task.id,
-          title: formData.title,
-          description: formData.description || undefined,
-          category: formData.category,
-          priority: formData.priority,
-          status: formData.status,
-          progress: formData.progress,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          createdAt: task.createdAt,
-          updatedAt: new Date(),
-          subtasks: task.subtasks,
-        };
-
-        // Optimistically update the UI first
-        if (onTaskSaved) {
-          onTaskSaved(updatedTaskData);
-        }
-
-        // Close dialog immediately for better UX
-        setOpen(false);
-
-        // Then make the API call
-        await backend.tasks.update({
+        const response = await backend.tasks.update({
           id: task.id,
           title: formData.title,
           description: formData.description || undefined,
@@ -126,6 +102,10 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
           title: "Task updated",
           description: "The task has been successfully updated.",
         });
+        
+        if (onTaskSaved) {
+          onTaskSaved(response);
+        }
       } else {
         // Create new task
         const response = await backend.tasks.create({
@@ -147,22 +127,30 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
         if (onTaskCreated) {
           onTaskCreated(response);
         }
-
-        setOpen(false);
       }
+
+      setOpen(false);
     } catch (error) {
       console.error('Error saving task:', error);
+      
+      // More specific error messages based on the error
+      let errorMessage = "Failed to save the task. Please try again.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage = "Request timed out. Please check your connection and try again.";
+        } else if (error.message.includes('network')) {
+          errorMessage = "Network error. Please check your connection and try again.";
+        } else if (error.message.includes('validation')) {
+          errorMessage = "Please check your input and try again.";
+        }
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to save the task. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
-      
-      // If there was an error and we're editing, we should revert the optimistic update
-      // This would require a more complex state management, but for now we'll just show the error
-      if (!task) {
-        setOpen(false);
-      }
     } finally {
       setLoading(false);
     }
@@ -199,6 +187,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="Enter task title"
               required
+              disabled={loading}
             />
           </div>
 
@@ -211,6 +200,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Enter task description"
               rows={3}
+              disabled={loading}
             />
           </div>
 
@@ -221,6 +211,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
               <Select
                 value={formData.category}
                 onValueChange={(value) => setFormData({ ...formData, category: value })}
+                disabled={loading}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -240,6 +231,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
               <Select
                 value={formData.priority}
                 onValueChange={(value: TaskPriority) => setFormData({ ...formData, priority: value })}
+                disabled={loading}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -261,6 +253,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
             <Select
               value={formData.status}
               onValueChange={(value: TaskStatus) => setFormData({ ...formData, status: value })}
+              disabled={loading}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -285,6 +278,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
               max={100}
               step={5}
               className="w-full"
+              disabled={loading}
             />
           </div>
 
@@ -300,6 +294,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
                       "w-full justify-start text-left font-normal",
                       !formData.startDate && "text-muted-foreground"
                     )}
+                    disabled={loading}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {formData.startDate ? format(formData.startDate, "PPP") : "Pick a date"}
@@ -326,6 +321,7 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
                       "w-full justify-start text-left font-normal",
                       !formData.endDate && "text-muted-foreground"
                     )}
+                    disabled={loading}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {formData.endDate ? format(formData.endDate, "PPP") : "Pick a date"}
@@ -345,11 +341,26 @@ export function TaskDialog({ task, onTaskSaved, onTaskCreated, trigger }: TaskDi
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setOpen(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !formData.title.trim()}>
-              {loading ? 'Saving...' : task ? 'Update Task' : 'Create Task'}
+            <Button 
+              type="submit" 
+              disabled={loading || !formData.title.trim()}
+            >
+              {loading ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                  {task ? 'Updating...' : 'Creating...'}
+                </>
+              ) : (
+                task ? 'Update Task' : 'Create Task'
+              )}
             </Button>
           </div>
         </form>
