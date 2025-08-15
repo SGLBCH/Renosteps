@@ -4,14 +4,14 @@ import { GanttChartView } from './GanttChartView';
 import { Dashboard } from './Dashboard';
 import { Budget } from './Budget';
 import { ErrorBoundary } from './ErrorBoundary';
+import { ProjectTitleHeader } from './ProjectTitleHeader';
 
 export function MainContent() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="p-6 border-b border-border flex-shrink-0">
-        <h1 className="text-3xl font-semibold tracking-tight">Home Renovation Project</h1>
-        <p className="text-muted-foreground leading-7 mt-1">1-6-2023 - 30-9-2023</p>
+        <ProjectTitleHeader />
       </div>
 
       {/* Content */}
