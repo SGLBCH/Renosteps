@@ -1,5 +1,7 @@
 import { api, APIError } from "encore.dev/api";
 import { projectsDB } from "./db";
+import { tasksDB } from "../tasks/db";
+import { budgetDB } from "../budget/db";
 
 interface DeleteProjectParams {
   id: string;
@@ -15,12 +17,9 @@ export const deleteProject = api<DeleteProjectParams, void>(
       throw APIError.invalidArgument("Invalid project ID format");
     }
 
-    // Start a transaction to ensure all deletions happen atomically
-    const tx = await projectsDB.begin();
-    
     try {
       // Check if project exists
-      const existingProject = await tx.queryRow`
+      const existingProject = await projectsDB.queryRow`
         SELECT id FROM projects WHERE id = ${projectId}
       `;
 
@@ -28,41 +27,36 @@ export const deleteProject = api<DeleteProjectParams, void>(
         throw APIError.notFound("Project not found");
       }
 
-      // Delete associated data in the correct order (respecting foreign key constraints)
+      // Delete associated data from different databases
       // Use the string version of the project ID for the related tables since they store project_id as TEXT
       
-      // 1. Delete subtasks first (they reference tasks and have project_id)
-      await tx.exec`
+      // 1. Delete subtasks first (they reference tasks and have project_id) - from tasks database
+      await tasksDB.exec`
         DELETE FROM subtasks 
         WHERE project_id = ${id}
       `;
 
-      // 2. Delete tasks (they have project_id as TEXT)
-      await tx.exec`
+      // 2. Delete tasks - from tasks database
+      await tasksDB.exec`
         DELETE FROM tasks WHERE project_id = ${id}
       `;
 
-      // 3. Delete budget expenses (they have project_id as TEXT)
-      await tx.exec`
+      // 3. Delete budget expenses - from budget database
+      await budgetDB.exec`
         DELETE FROM budget_expenses WHERE project_id = ${id}
       `;
 
-      // 4. Delete budget settings (they have project_id as TEXT)
-      await tx.exec`
+      // 4. Delete budget settings - from budget database
+      await budgetDB.exec`
         DELETE FROM budget_settings WHERE project_id = ${id}
       `;
 
-      // 5. Finally delete the project itself (using numeric ID)
-      await tx.exec`
+      // 5. Finally delete the project itself (using numeric ID) - from projects database
+      await projectsDB.exec`
         DELETE FROM projects WHERE id = ${projectId}
       `;
 
-      // Commit the transaction
-      await tx.commit();
     } catch (error) {
-      // Rollback the transaction on any error
-      await tx.rollback();
-      
       if (error instanceof APIError) {
         throw error;
       }
