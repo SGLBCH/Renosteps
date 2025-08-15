@@ -11,7 +11,7 @@ interface HealthCheckResponse {
 }
 
 // Health check endpoint to verify authentication system status.
-export const health = api<HealthCheckResponse, HealthCheckResponse>(
+export const health = api<void, HealthCheckResponse>(
   { expose: true, method: "GET", path: "/auth/health" },
   async () => {
     let jwtSecretConfigured = false;
