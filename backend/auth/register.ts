@@ -10,34 +10,51 @@ export const register = api<RegisterRequest, AuthResponse>(
   async (req) => {
     console.log('Registration attempt for email:', req.email);
     
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(req.email)) {
-      console.error('Invalid email format:', req.email);
-      throw APIError.invalidArgument("Invalid email format");
-    }
-
-    // Validate password strength
-    if (req.password.length < 8) {
-      console.error('Password too short:', req.password.length);
-      throw APIError.invalidArgument("Password must be at least 8 characters long");
-    }
-
     try {
+      // Validate input format
+      if (!req.email || !req.email.trim()) {
+        throw APIError.invalidArgument("Email is required");
+      }
+
+      if (!req.password || !req.password.trim()) {
+        throw APIError.invalidArgument("Password is required");
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(req.email.trim())) {
+        throw APIError.invalidArgument("Please enter a valid email address");
+      }
+
+      // Validate password strength with specific requirements
+      const password = req.password.trim();
+      if (password.length < 8) {
+        throw APIError.invalidArgument("Password must be at least 8 characters long");
+      }
+
+      if (password.length > 128) {
+        throw APIError.invalidArgument("Password must be less than 128 characters long");
+      }
+
+      // Check for at least one letter and one number for better security
+      if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(password)) {
+        throw APIError.invalidArgument("Password must contain at least one letter and one number");
+      }
+
       // Check if user already exists
       console.log('Checking if user exists:', req.email.toLowerCase());
       const existingUser = await authDB.queryRow`
-        SELECT id FROM users WHERE email = ${req.email.toLowerCase()}
+        SELECT id FROM users WHERE email = ${req.email.toLowerCase().trim()}
       `;
 
       if (existingUser) {
         console.error('User already exists:', req.email);
-        throw APIError.alreadyExists("User with this email already exists");
+        throw APIError.alreadyExists("An account with this email address already exists");
       }
 
       // Hash password
       console.log('Hashing password for user:', req.email);
-      const passwordHash = await hashPassword(req.password);
+      const passwordHash = await hashPassword(password);
 
       // Create user
       console.log('Creating user in database:', req.email);
@@ -47,13 +64,13 @@ export const register = api<RegisterRequest, AuthResponse>(
         created_at: Date;
       }>`
         INSERT INTO users (email, password_hash, created_at)
-        VALUES (${req.email.toLowerCase()}, ${passwordHash}, NOW())
+        VALUES (${req.email.toLowerCase().trim()}, ${passwordHash}, NOW())
         RETURNING id, email, created_at
       `;
 
       if (!user) {
         console.error('Failed to create user - no data returned');
-        throw APIError.internal("Failed to create user");
+        throw APIError.internal("Failed to create account. Please try again.");
       }
 
       console.log('User created successfully:', user.id, user.email);
@@ -79,21 +96,27 @@ export const register = api<RegisterRequest, AuthResponse>(
         throw error;
       }
       
-      // Handle database errors
+      // Handle database errors with user-friendly messages
       if (error instanceof Error) {
         if (error.message.includes('unique') || error.message.includes('duplicate')) {
-          throw APIError.alreadyExists("User with this email already exists");
+          throw APIError.alreadyExists("An account with this email address already exists");
+        } else if (error.message.includes('connection') || error.message.includes('timeout')) {
+          throw APIError.unavailable("Service temporarily unavailable. Please try again in a moment.");
         } else if (error.message.includes('password')) {
-          throw APIError.internal("Password processing failed");
+          throw APIError.internal("Password processing failed. Please try again.");
         } else if (error.message.includes('JWT') || error.message.includes('token')) {
-          throw APIError.internal("Authentication token generation failed");
+          throw APIError.internal("Account created but login failed. Please try signing in.");
+        } else if (error.message.includes('database') || error.message.includes('sql')) {
+          throw APIError.unavailable("Service temporarily unavailable. Please try again later.");
+        } else if (error.message.includes('email')) {
+          throw APIError.invalidArgument("Invalid email address format");
         } else {
           console.error('Unexpected registration error:', error.message);
-          throw APIError.internal(`Registration failed: ${error.message}`);
+          throw APIError.internal("Registration failed. Please try again.");
         }
       }
       
-      throw APIError.internal("Failed to register user");
+      throw APIError.internal("An unexpected error occurred. Please try again.");
     }
   }
 );

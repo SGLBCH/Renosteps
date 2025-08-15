@@ -14,7 +14,7 @@ export async function hashPassword(password: string): Promise<string> {
     const hash = await bcryptjs.hash(password, saltRounds);
     
     if (!hash) {
-      throw new Error('Bcryptjs returned empty hash');
+      throw new Error('Password hashing failed - empty result');
     }
     
     console.log('Password hashed successfully');
@@ -23,7 +23,13 @@ export async function hashPassword(password: string): Promise<string> {
     console.error('Password hashing error:', error);
     
     if (error instanceof Error) {
-      throw new Error(`Password hashing failed: ${error.message}`);
+      if (error.message.includes('bcryptjs')) {
+        throw new Error('Password encryption service unavailable');
+      } else if (error.message.includes('salt')) {
+        throw new Error('Password encryption configuration error');
+      } else {
+        throw new Error(`Password hashing failed: ${error.message}`);
+      }
     }
     
     throw new Error('Password hashing failed');
@@ -42,6 +48,19 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
     return isValid;
   } catch (error) {
     console.error('Password verification error:', error);
+    
+    // Return false on any error to prevent authentication bypass
+    // but log the specific error for debugging
+    if (error instanceof Error) {
+      if (error.message.includes('bcryptjs')) {
+        console.error('Password verification service unavailable');
+      } else if (error.message.includes('hash')) {
+        console.error('Invalid password hash format');
+      } else {
+        console.error('Password verification failed:', error.message);
+      }
+    }
+    
     return false;
   }
 }
@@ -63,6 +82,15 @@ export function getJWTSecret(): string {
     return secret;
   } catch (error) {
     console.error('Error getting JWT secret:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('secret')) {
+        throw new Error('JWT secret configuration error');
+      } else {
+        throw new Error(`Failed to retrieve JWT secret: ${error.message}`);
+      }
+    }
+    
     throw new Error('Failed to retrieve JWT secret');
   }
 }

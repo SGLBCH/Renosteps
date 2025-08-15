@@ -11,6 +11,21 @@ export const login = api<LoginRequest, AuthResponse>(
     console.log('Login attempt for email:', req.email);
     
     try {
+      // Validate input format
+      if (!req.email || !req.email.trim()) {
+        throw APIError.invalidArgument("Email is required");
+      }
+
+      if (!req.password || !req.password.trim()) {
+        throw APIError.invalidArgument("Password is required");
+      }
+
+      // Basic email format validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(req.email.trim())) {
+        throw APIError.invalidArgument("Please enter a valid email address");
+      }
+
       // Find user by email
       console.log('Looking up user:', req.email.toLowerCase());
       const user = await authDB.queryRow<{
@@ -21,11 +36,12 @@ export const login = api<LoginRequest, AuthResponse>(
       }>`
         SELECT id, email, password_hash, created_at
         FROM users 
-        WHERE email = ${req.email.toLowerCase()}
+        WHERE email = ${req.email.toLowerCase().trim()}
       `;
 
       if (!user) {
         console.error('User not found:', req.email);
+        // Use generic message to avoid revealing whether email exists
         throw APIError.unauthenticated("Invalid email or password");
       }
 
@@ -36,6 +52,7 @@ export const login = api<LoginRequest, AuthResponse>(
       const isValidPassword = await verifyPassword(req.password, user.password_hash);
       if (!isValidPassword) {
         console.error('Invalid password for user:', user.id);
+        // Use generic message to avoid revealing whether email exists
         throw APIError.unauthenticated("Invalid email or password");
       }
 
@@ -62,19 +79,23 @@ export const login = api<LoginRequest, AuthResponse>(
         throw error;
       }
       
-      // Handle unexpected errors
+      // Handle database connection errors
       if (error instanceof Error) {
-        if (error.message.includes('JWT') || error.message.includes('token')) {
-          throw APIError.internal("Authentication token generation failed");
+        if (error.message.includes('connection') || error.message.includes('timeout')) {
+          throw APIError.unavailable("Service temporarily unavailable. Please try again in a moment.");
+        } else if (error.message.includes('JWT') || error.message.includes('token')) {
+          throw APIError.internal("Authentication service error. Please try again.");
         } else if (error.message.includes('password')) {
           throw APIError.unauthenticated("Invalid email or password");
+        } else if (error.message.includes('database') || error.message.includes('sql')) {
+          throw APIError.unavailable("Service temporarily unavailable. Please try again later.");
         } else {
           console.error('Unexpected login error:', error.message);
-          throw APIError.internal(`Login failed: ${error.message}`);
+          throw APIError.internal("Login failed. Please try again.");
         }
       }
       
-      throw APIError.internal("Failed to authenticate user");
+      throw APIError.internal("An unexpected error occurred. Please try again.");
     }
   }
 );
