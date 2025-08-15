@@ -7,7 +7,8 @@ export const updateBudget = api<UpdateBudgetRequest, BudgetSettings>(
   { expose: true, method: "PUT", path: "/budget" },
   async (req) => {
     const now = new Date();
-    const projectId = req.projectId || '1'; // Default to project 1 if not specified
+    // Convert projectId to string if it's a number, default to '1' if not specified
+    const projectId = req.projectId ? String(req.projectId) : '1';
 
     // Check if budget settings exist for this project
     const existing = await budgetDB.queryRow`

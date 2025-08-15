@@ -36,7 +36,8 @@ export const updateExpense = api<UpdateExpenseRequest, BudgetExpense>(
 
     if (updates.projectId !== undefined) {
       updateFields.push(`project_id = $${paramIndex++}`);
-      updateValues.push(updates.projectId);
+      // Convert projectId to string if it's a number
+      updateValues.push(String(updates.projectId));
     }
 
     if (updateFields.length === 0) {

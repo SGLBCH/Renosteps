@@ -6,7 +6,8 @@ import type { BudgetSummaryRequest, BudgetSummaryResponse, BudgetExpense } from 
 export const getSummary = api<BudgetSummaryRequest, BudgetSummaryResponse>(
   { expose: true, method: "GET", path: "/budget/summary" },
   async (req) => {
-    const projectId = req.projectId || '1'; // Default to project 1 if not specified
+    // Convert projectId to string if it's a number, default to '1' if not specified
+    const projectId = req.projectId ? String(req.projectId) : '1';
 
     // Get budget settings for the project
     const budgetSettings = await budgetDB.queryRow<{ total_budget: number }>`
