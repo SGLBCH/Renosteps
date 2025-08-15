@@ -21,20 +21,19 @@ interface DragState {
   originalEndDate: Date | null;
 }
 
-interface TouchState {
+interface MobileScrollState {
+  isScrolling: boolean;
   startX: number;
   startY: number;
-  startTime: number;
-  isScrolling: boolean;
-  scrollStartX: number;
-  scrollStartY: number;
+  currentX: number;
+  currentY: number;
+  velocityX: number;
+  velocityY: number;
+  lastMoveTime: number;
+  scrollLeft: number;
+  scrollTop: number;
   isDraggingTask: boolean;
-}
-
-interface ViewportState {
-  offsetX: number;
-  offsetY: number;
-  scale: number;
+  momentum: boolean;
 }
 
 function GanttChartContent() {
@@ -52,23 +51,25 @@ function GanttChartContent() {
     originalStartDate: null,
     originalEndDate: null,
   });
-  const [touchState, setTouchState] = useState<TouchState>({
+  const [mobileScrollState, setMobileScrollState] = useState<MobileScrollState>({
+    isScrolling: false,
     startX: 0,
     startY: 0,
-    startTime: 0,
-    isScrolling: false,
-    scrollStartX: 0,
-    scrollStartY: 0,
+    currentX: 0,
+    currentY: 0,
+    velocityX: 0,
+    velocityY: 0,
+    lastMoveTime: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
     isDraggingTask: false,
-  });
-  const [viewportState, setViewportState] = useState<ViewportState>({
-    offsetX: 0,
-    offsetY: 0,
-    scale: 1,
+    momentum: false,
   });
   const { toast } = useToast();
   const ganttRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const momentumAnimationRef = useRef<number>();
   const isMobile = window.innerWidth < 768;
 
   // Filter tasks that have both start and end dates
@@ -79,8 +80,7 @@ function GanttChartContent() {
     const startDate = new Date(currentDate);
     
     if (viewMode === 'day') {
-      // Show more days on mobile for better swipe navigation
-      const daysToShow = isMobile ? 14 : 14;
+      const daysToShow = isMobile ? 21 : 14;
       startDate.setDate(startDate.getDate() - Math.floor(daysToShow / 2));
       for (let i = 0; i < daysToShow; i++) {
         const date = new Date(startDate);
@@ -94,8 +94,7 @@ function GanttChartContent() {
         });
       }
     } else if (viewMode === 'week') {
-      // Show more weeks on mobile for better swipe navigation
-      const weeksToShow = isMobile ? 8 : 8;
+      const weeksToShow = isMobile ? 12 : 8;
       const startOfWeek = new Date(startDate);
       startOfWeek.setDate(startDate.getDate() - startDate.getDay() - (weeksToShow * 7 / 2));
       
@@ -114,8 +113,7 @@ function GanttChartContent() {
         });
       }
     } else if (viewMode === 'month') {
-      // Show more months on mobile for better swipe navigation
-      const monthsToShow = isMobile ? 6 : 6;
+      const monthsToShow = isMobile ? 9 : 6;
       startDate.setMonth(startDate.getMonth() - Math.floor(monthsToShow / 2));
       startDate.setDate(1);
       
@@ -251,7 +249,7 @@ function GanttChartContent() {
     const width = ((endPosition - startPosition) / totalColumns) * 100;
     const left = (startPosition / totalColumns) * 100;
     
-    const minWidth = isMobile ? 8 : 2; // Larger minimum width on mobile
+    const minWidth = isMobile ? 10 : 2;
     const adjustedWidth = Math.max(width, minWidth);
     
     return { 
@@ -302,40 +300,66 @@ function GanttChartContent() {
     return { startDate: newStartDate, endDate: newEndDate };
   };
 
-  // Mobile swipe navigation functions
-  const handleSwipeNavigation = (deltaX: number, deltaY: number) => {
-    const threshold = 50;
+  // Momentum scrolling for smooth iOS-like experience
+  const startMomentumScroll = (velocityX: number, velocityY: number) => {
+    if (!scrollContainerRef.current) return;
     
-    // Horizontal swipes for time navigation
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) {
-      if (deltaX > 0) {
-        handlePrevious(); // Swipe right = go back in time
-      } else {
-        handleNext(); // Swipe left = go forward in time
+    const container = scrollContainerRef.current;
+    const friction = 0.95;
+    const threshold = 0.1;
+    
+    const animate = () => {
+      if (Math.abs(velocityX) < threshold && Math.abs(velocityY) < threshold) {
+        setMobileScrollState(prev => ({ ...prev, momentum: false }));
+        return;
       }
-    }
-    // Vertical swipes for viewport movement
-    else if (Math.abs(deltaY) > threshold) {
-      setViewportState(prev => ({
-        ...prev,
-        offsetY: Math.max(-200, Math.min(200, prev.offsetY + (deltaY > 0 ? 50 : -50)))
-      }));
-    }
+      
+      const newScrollLeft = Math.max(0, Math.min(
+        container.scrollLeft - velocityX,
+        container.scrollWidth - container.clientWidth
+      ));
+      
+      const newScrollTop = Math.max(0, Math.min(
+        container.scrollTop - velocityY,
+        container.scrollHeight - container.clientHeight
+      ));
+      
+      container.scrollLeft = newScrollLeft;
+      container.scrollTop = newScrollTop;
+      
+      velocityX *= friction;
+      velocityY *= friction;
+      
+      momentumAnimationRef.current = requestAnimationFrame(animate);
+    };
+    
+    setMobileScrollState(prev => ({ ...prev, momentum: true }));
+    momentumAnimationRef.current = requestAnimationFrame(animate);
   };
 
-  // Touch event handlers
+  // Mobile touch handlers with improved iOS compatibility
   const handleTouchStart = (e: React.TouchEvent, task?: Task) => {
+    // Stop any ongoing momentum
+    if (momentumAnimationRef.current) {
+      cancelAnimationFrame(momentumAnimationRef.current);
+    }
+    
     const touch = e.touches[0];
     const now = Date.now();
     
-    setTouchState({
+    setMobileScrollState({
+      isScrolling: false,
       startX: touch.clientX,
       startY: touch.clientY,
-      startTime: now,
-      isScrolling: false,
-      scrollStartX: 0,
-      scrollStartY: 0,
+      currentX: touch.clientX,
+      currentY: touch.clientY,
+      velocityX: 0,
+      velocityY: 0,
+      lastMoveTime: now,
+      scrollLeft: scrollContainerRef.current?.scrollLeft || 0,
+      scrollTop: scrollContainerRef.current?.scrollTop || 0,
       isDraggingTask: !!task,
+      momentum: false,
     });
 
     if (task && !isMobile) {
@@ -357,56 +381,81 @@ function GanttChartContent() {
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    
+    // Prevent default to stop page scrolling
+    e.preventDefault();
+    
     const touch = e.touches[0];
-    const deltaX = touch.clientX - touchState.startX;
-    const deltaY = touch.clientY - touchState.startY;
+    const now = Date.now();
+    const deltaTime = now - mobileScrollState.lastMoveTime;
     
-    // On mobile, prevent default scrolling behavior
-    if (isMobile) {
-      e.preventDefault();
-    }
+    if (deltaTime === 0) return;
     
-    // Determine if this is a scroll gesture
-    if (!touchState.isScrolling && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
-      setTouchState(prev => ({ ...prev, isScrolling: true }));
-    }
-
-    // Handle task dragging on desktop
-    if (dragState.isDragging && !isMobile && !touchState.isScrolling) {
-      const column = getColumnFromX(touch.clientX);
-      setDragState(prev => ({ ...prev, currentColumn: column }));
-    }
-    // Handle viewport movement on mobile
-    else if (isMobile && touchState.isScrolling && !touchState.isDraggingTask) {
-      // Update viewport position in real-time for smooth movement
-      setViewportState(prev => ({
-        ...prev,
-        offsetX: Math.max(-300, Math.min(300, deltaX * 0.5)),
-        offsetY: Math.max(-200, Math.min(200, deltaY * 0.5))
-      }));
+    const deltaX = touch.clientX - mobileScrollState.currentX;
+    const deltaY = touch.clientY - mobileScrollState.currentY;
+    
+    // Calculate velocity for momentum
+    const velocityX = deltaX / deltaTime * 16; // Convert to pixels per frame (60fps)
+    const velocityY = deltaY / deltaTime * 16;
+    
+    setMobileScrollState(prev => ({
+      ...prev,
+      isScrolling: true,
+      currentX: touch.clientX,
+      currentY: touch.clientY,
+      velocityX,
+      velocityY,
+      lastMoveTime: now,
+    }));
+    
+    // Apply scroll directly to container
+    if (scrollContainerRef.current && !mobileScrollState.isDraggingTask) {
+      const container = scrollContainerRef.current;
+      const newScrollLeft = Math.max(0, Math.min(
+        mobileScrollState.scrollLeft - (touch.clientX - mobileScrollState.startX),
+        container.scrollWidth - container.clientWidth
+      ));
+      
+      const newScrollTop = Math.max(0, Math.min(
+        mobileScrollState.scrollTop - (touch.clientY - mobileScrollState.startY),
+        container.scrollHeight - container.clientHeight
+      ));
+      
+      container.scrollLeft = newScrollLeft;
+      container.scrollTop = newScrollTop;
     }
   };
 
   const handleTouchEnd = async (e: React.TouchEvent) => {
     const touch = e.changedTouches[0];
-    const deltaX = touch.clientX - touchState.startX;
-    const deltaY = touch.clientY - touchState.startY;
-    const deltaTime = Date.now() - touchState.startTime;
+    const totalDeltaX = touch.clientX - mobileScrollState.startX;
+    const totalDeltaY = touch.clientY - mobileScrollState.startY;
+    const totalDistance = Math.sqrt(totalDeltaX * totalDeltaX + totalDeltaY * totalDeltaY);
+    const deltaTime = Date.now() - mobileScrollState.lastMoveTime;
     
-    // Handle swipe gestures on mobile
-    if (isMobile && !touchState.isDraggingTask && deltaTime < 500) {
-      handleSwipeNavigation(deltaX, deltaY);
+    // Handle swipe gestures for time navigation (only if not scrolling content)
+    if (isMobile && !mobileScrollState.isDraggingTask && totalDistance > 50 && deltaTime < 300) {
+      const isHorizontalSwipe = Math.abs(totalDeltaX) > Math.abs(totalDeltaY);
       
-      // Reset viewport position after swipe
-      setViewportState(prev => ({
-        ...prev,
-        offsetX: 0,
-        offsetY: 0
-      }));
+      if (isHorizontalSwipe && Math.abs(totalDeltaX) > 100) {
+        if (totalDeltaX > 0) {
+          handlePrevious();
+        } else {
+          handleNext();
+        }
+      }
+    }
+    // Start momentum scrolling if there's enough velocity
+    else if (isMobile && mobileScrollState.isScrolling && !mobileScrollState.isDraggingTask) {
+      const velocityThreshold = 2;
+      if (Math.abs(mobileScrollState.velocityX) > velocityThreshold || Math.abs(mobileScrollState.velocityY) > velocityThreshold) {
+        startMomentumScroll(mobileScrollState.velocityX, mobileScrollState.velocityY);
+      }
     }
 
     // Handle task drag completion on desktop
-    if (dragState.isDragging && !isMobile && !touchState.isScrolling) {
+    if (dragState.isDragging && !isMobile) {
       const task = tasksWithDates.find(t => t.id === dragState.taskId);
       if (task) {
         const columnDiff = dragState.currentColumn - dragState.startColumn;
@@ -449,15 +498,11 @@ function GanttChartContent() {
       originalEndDate: null,
     });
     
-    setTouchState({
-      startX: 0,
-      startY: 0,
-      startTime: 0,
+    setMobileScrollState(prev => ({
+      ...prev,
       isScrolling: false,
-      scrollStartX: 0,
-      scrollStartY: 0,
       isDraggingTask: false,
-    });
+    }));
   };
 
   // Mouse event handlers (for desktop)
@@ -564,16 +609,14 @@ function GanttChartContent() {
     };
   };
 
-  // Update date headers when window resizes
+  // Cleanup momentum animation on unmount
   useEffect(() => {
-    const handleResize = () => {
-      // Force re-render of date headers with new responsive values
-      setCurrentDate(new Date(currentDate));
+    return () => {
+      if (momentumAnimationRef.current) {
+        cancelAnimationFrame(momentumAnimationRef.current);
+      }
     };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [currentDate]);
+  }, []);
 
   if (!currentProject) {
     return (
@@ -623,15 +666,15 @@ function GanttChartContent() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-6 h-full flex flex-col">
+      <div className="flex-shrink-0">
         <h2 className="text-2xl font-semibold">Gantt Chart</h2>
         <p className="text-sm text-muted-foreground">{currentProject.name}</p>
       </div>
       
-      <div className="bg-card border border-border rounded-lg shadow-sm flex flex-col h-[calc(100vh-200px)]">
+      <div className="bg-card border border-border rounded-lg shadow-sm flex flex-col flex-1 min-h-0">
         {/* Mobile Toolbar */}
-        <div className="md:hidden p-4 border-b border-border flex items-center justify-between">
+        <div className="md:hidden p-4 border-b border-border flex items-center justify-between flex-shrink-0">
           <Button
             variant="outline"
             size="icon"
@@ -653,7 +696,7 @@ function GanttChartContent() {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden p-4 border-b border-border bg-muted/50 space-y-4">
+          <div className="md:hidden p-4 border-b border-border bg-muted/50 space-y-4 flex-shrink-0">
             <div className="flex items-center gap-2">
               <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
                 <SelectTrigger className="w-32">
@@ -692,11 +735,9 @@ function GanttChartContent() {
             
             <div className="text-sm font-medium text-center">{getCurrentDateRange()}</div>
             
-            {isMobile && (
-              <div className="text-xs text-muted-foreground text-center bg-blue-50 p-2 rounded">
-                💡 Swipe left/right to navigate time, swipe up/down to move view
-              </div>
-            )}
+            <div className="text-xs text-muted-foreground text-center bg-blue-50 p-2 rounded">
+              💡 Scroll to navigate • Swipe left/right to change time period
+            </div>
           </div>
         )}
 
@@ -751,140 +792,149 @@ function GanttChartContent() {
           </div>
         </div>
 
-        {/* Gantt Grid - Mobile: No scroll, Desktop: Scrollable */}
-        <div 
-          className={`flex-1 ${isMobile ? 'overflow-hidden' : 'overflow-auto'} touch-pan-x`}
-          ref={ganttRef}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          style={isMobile ? {
-            transform: `translate(${viewportState.offsetX}px, ${viewportState.offsetY}px)`,
-            transition: touchState.isScrolling ? 'none' : 'transform 0.3s ease-out'
-          } : {}}
-        >
-          <div className={`${isMobile ? 'min-w-[800px]' : 'min-w-[600px] md:min-w-[800px]'} h-full`} ref={timelineRef}>
-            {/* Header Row */}
+        {/* Gantt Grid Container - Fixed height with internal scrolling */}
+        <div className="flex-1 min-h-0 relative">
+          <div 
+            ref={scrollContainerRef}
+            className={`h-full ${isMobile ? 'overflow-auto' : 'overflow-auto'} scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100`}
+            style={{
+              WebkitOverflowScrolling: 'touch',
+              scrollBehavior: 'auto',
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
             <div 
-              className={`grid border-b border-border sticky top-0 bg-card z-10`} 
-              style={{ 
-                gridTemplateColumns: isMobile 
-                  ? `200px repeat(${dateHeaders.length}, 1fr)` 
-                  : `300px repeat(${dateHeaders.length}, 1fr)` 
-              }}
+              ref={ganttRef}
+              className="min-w-[800px] md:min-w-[1000px] h-full"
+              ref={timelineRef}
             >
-              <div className="p-2 md:p-3 border-r border-border font-medium text-sm md:text-base">Task</div>
-              {dateHeaders.map((header, index) => (
-                <div key={header.key} className="p-1 md:p-2 text-center text-xs md:text-sm font-medium border-r border-border last:border-r-0">
-                  {header.label}
+              {/* Header Row - Sticky */}
+              <div 
+                className="grid border-b border-border sticky top-0 bg-card z-20 shadow-sm" 
+                style={{ 
+                  gridTemplateColumns: isMobile 
+                    ? `200px repeat(${dateHeaders.length}, minmax(80px, 1fr))` 
+                    : `300px repeat(${dateHeaders.length}, minmax(100px, 1fr))` 
+                }}
+              >
+                <div className="p-3 border-r border-border font-medium bg-card sticky left-0 z-30 shadow-sm">
+                  Task
                 </div>
-              ))}
-            </div>
+                {dateHeaders.map((header, index) => (
+                  <div key={header.key} className="p-2 text-center text-xs md:text-sm font-medium border-r border-border last:border-r-0 bg-card">
+                    {header.label}
+                  </div>
+                ))}
+              </div>
 
-            {/* Task Rows */}
-            <div className="divide-y divide-border">
-              {tasksWithDates.length === 0 ? (
-                <div className="p-4 md:p-8 text-center text-muted-foreground text-sm md:text-base">
-                  No tasks with start and end dates found for {currentProject.name}. Add dates to your tasks to see them in the Gantt chart.
-                </div>
-              ) : (
-                tasksWithDates.map((task) => {
-                  const barPosition = calculateTaskBarPosition(task);
-                  const dragPreviewPosition = getDragPreviewPosition(task);
-                  const isDraggingThis = dragState.isDragging && dragState.taskId === task.id;
-                  
-                  return (
-                    <ErrorBoundary key={task.id}>
-                      <div 
-                        className={`grid hover:bg-accent/50 transition-colors ${isDraggingThis ? 'bg-accent/30' : ''}`} 
-                        style={{ 
-                          gridTemplateColumns: isMobile 
-                            ? `200px repeat(${dateHeaders.length}, 1fr)` 
-                            : `300px repeat(${dateHeaders.length}, 1fr)` 
-                        }}
-                      >
-                        {/* Task Info - Sticky Left Column */}
-                        <div className="p-2 md:p-3 border-r border-border bg-card sticky left-0 z-10">
-                          <div className="font-medium text-sm md:text-base truncate">{task.title}</div>
-                          <div className="text-xs md:text-sm text-muted-foreground capitalize truncate">{task.category}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {task.progress}% complete
-                          </div>
-                        </div>
-                        
-                        {/* Timeline Grid */}
-                        <div className="relative overflow-visible" style={{ gridColumn: `2 / ${dateHeaders.length + 2}` }}>
-                          <div className={`grid h-12 md:h-16`} style={{ gridTemplateColumns: `repeat(${dateHeaders.length}, 1fr)` }}>
-                            {dateHeaders.map((_, index) => (
-                              <div key={index} className="border-r border-border last:border-r-0"></div>
-                            ))}
+              {/* Task Rows */}
+              <div className="divide-y divide-border">
+                {tasksWithDates.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No tasks with start and end dates found for {currentProject.name}. Add dates to your tasks to see them in the Gantt chart.
+                  </div>
+                ) : (
+                  tasksWithDates.map((task) => {
+                    const barPosition = calculateTaskBarPosition(task);
+                    const dragPreviewPosition = getDragPreviewPosition(task);
+                    const isDraggingThis = dragState.isDragging && dragState.taskId === task.id;
+                    
+                    return (
+                      <ErrorBoundary key={task.id}>
+                        <div 
+                          className={`grid hover:bg-accent/50 transition-colors ${isDraggingThis ? 'bg-accent/30' : ''}`} 
+                          style={{ 
+                            gridTemplateColumns: isMobile 
+                              ? `200px repeat(${dateHeaders.length}, minmax(80px, 1fr))` 
+                              : `300px repeat(${dateHeaders.length}, minmax(100px, 1fr))` 
+                          }}
+                        >
+                          {/* Task Info - Sticky Left Column */}
+                          <div className="p-3 border-r border-border bg-card sticky left-0 z-10 shadow-sm">
+                            <div className="font-medium text-sm truncate">{task.title}</div>
+                            <div className="text-xs text-muted-foreground capitalize truncate">{task.category}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {task.progress}% complete
+                            </div>
                           </div>
                           
-                          {/* Original Task Bar */}
-                          {barPosition && (
-                            <div
-                              className={`absolute top-1/2 transform -translate-y-1/2 h-6 md:h-8 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm ${isMobile ? 'cursor-default' : 'cursor-move'} select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity z-10 ${isMobile ? '' : 'touch-manipulation'}`}
-                              style={{
-                                left: barPosition.left,
-                                width: barPosition.width,
-                              }}
-                              onMouseDown={!isMobile ? (e) => handleMouseDown(e, task) : undefined}
-                              onTouchStart={(e) => handleTouchStart(e, task)}
-                            >
-                              <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)}`}>
-                                <div className="w-full h-full bg-white/20 rounded-md flex items-center justify-center">
-                                  <span className="truncate px-1 md:px-2 text-xs">{task.title}</span>
+                          {/* Timeline Grid */}
+                          <div className="relative overflow-visible" style={{ gridColumn: `2 / ${dateHeaders.length + 2}` }}>
+                            <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${dateHeaders.length}, minmax(80px, 1fr))` }}>
+                              {dateHeaders.map((_, index) => (
+                                <div key={index} className="border-r border-border last:border-r-0"></div>
+                              ))}
+                            </div>
+                            
+                            {/* Original Task Bar */}
+                            {barPosition && (
+                              <div
+                                className={`absolute top-1/2 transform -translate-y-1/2 h-8 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm ${isMobile ? 'cursor-default' : 'cursor-move'} select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity z-10`}
+                                style={{
+                                  left: barPosition.left,
+                                  width: barPosition.width,
+                                }}
+                                onMouseDown={!isMobile ? (e) => handleMouseDown(e, task) : undefined}
+                                onTouchStart={(e) => handleTouchStart(e, task)}
+                              >
+                                <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)}`}>
+                                  <div className="w-full h-full bg-white/20 rounded-md flex items-center justify-center">
+                                    <span className="truncate px-2 text-xs">{task.title}</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          )}
-                          
-                          {/* Drag Preview */}
-                          {dragPreviewPosition && isDraggingThis && (
-                            <div
-                              className="absolute top-1/2 transform -translate-y-1/2 h-6 md:h-8 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-lg border-2 border-primary z-20 pointer-events-none"
-                              style={{
-                                left: dragPreviewPosition.left,
-                                width: dragPreviewPosition.width,
-                              }}
-                            >
-                              <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)} opacity-90`}>
-                                <div className="w-full h-full bg-white/30 rounded-md flex items-center justify-center">
-                                  <span className="truncate px-1 md:px-2 text-xs">{task.title}</span>
+                            )}
+                            
+                            {/* Drag Preview */}
+                            {dragPreviewPosition && isDraggingThis && (
+                              <div
+                                className="absolute top-1/2 transform -translate-y-1/2 h-8 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-lg border-2 border-primary z-20 pointer-events-none"
+                                style={{
+                                  left: dragPreviewPosition.left,
+                                  width: dragPreviewPosition.width,
+                                }}
+                              >
+                                <div className={`w-full h-full rounded-md ${getTaskBarColor(task.priority)} opacity-90`}>
+                                  <div className="w-full h-full bg-white/30 rounded-md flex items-center justify-center">
+                                    <span className="truncate px-2 text-xs">{task.title}</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </ErrorBoundary>
-                  );
-                })
-              )}
+                      </ErrorBoundary>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Legend */}
-        <div className="p-3 md:p-4 border-t border-border flex-shrink-0">
+        <div className="p-4 border-t border-border flex-shrink-0">
           <div className="flex flex-wrap items-center gap-3 md:gap-6 text-xs md:text-sm">
             <span className="font-medium">Priority:</span>
-            <div className="flex items-center gap-1 md:gap-2">
-              <div className="w-3 h-3 md:w-4 md:h-4 bg-red-500 rounded"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-500 rounded"></div>
               <span>High</span>
             </div>
-            <div className="flex items-center gap-1 md:gap-2">
-              <div className="w-3 h-3 md:w-4 md:h-4 bg-yellow-500 rounded"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-yellow-500 rounded"></div>
               <span>Medium</span>
             </div>
-            <div className="flex items-center gap-1 md:gap-2">
-              <div className="w-3 h-3 md:w-4 md:h-4 bg-green-500 rounded"></div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-500 rounded"></div>
               <span>Low</span>
             </div>
-            <div className="ml-0 md:ml-6 text-muted-foreground text-xs">
-              {isMobile ? '💡 Swipe to navigate' : '💡 Drag task bars to reschedule'}
+            <div className="ml-6 text-muted-foreground text-xs">
+              {isMobile ? '💡 Scroll to navigate timeline' : '💡 Drag task bars to reschedule'}
             </div>
           </div>
         </div>
