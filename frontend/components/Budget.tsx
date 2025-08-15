@@ -243,10 +243,11 @@ export function Budget() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="materials">Materials</SelectItem>
-                    <SelectItem value="labor">Labor</SelectItem>
-                    <SelectItem value="equipment">Equipment</SelectItem>
-                    <SelectItem value="permits">Permits</SelectItem>
+                    <SelectItem value="kitchen">Kitchen</SelectItem>
+                    <SelectItem value="bathroom">Bathroom</SelectItem>
+                    <SelectItem value="living-room">Living Room</SelectItem>
+                    <SelectItem value="bedroom">Bedroom</SelectItem>
+                    <SelectItem value="exterior">Exterior</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
@@ -380,7 +381,7 @@ export function Budget() {
                     <div>
                       <div className="font-medium">{expense.description}</div>
                       <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        <span className="capitalize">{expense.category}</span>
+                        <span className="capitalize">{expense.category.replace('-', ' ')}</span>
                         <span>•</span>
                         <Calendar className="h-3 w-3" />
                         {new Date(expense.date).toLocaleDateString()}
