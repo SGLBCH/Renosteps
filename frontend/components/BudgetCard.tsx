@@ -1,96 +1,107 @@
-import { useState, useEffect } from 'react';
-import { useToast } from '@/components/ui/use-toast';
-import backend from '~backend/client';
-
-interface BudgetSummary {
-  totalBudget: number;
-  totalSpent: number;
-  remaining: number;
-}
+import { DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useBudget } from '../hooks/useBudget';
 
 export function BudgetCard() {
-  const [budgetSummary, setBudgetSummary] = useState<BudgetSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-
-  const loadBudgetSummary = async () => {
-    try {
-      setLoading(true);
-      const response = await backend.budget.getSummary();
-      setBudgetSummary({
-        totalBudget: response.totalBudget,
-        totalSpent: response.totalSpent,
-        remaining: response.remaining,
-      });
-    } catch (error) {
-      console.error('Error loading budget summary:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load budget data.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadBudgetSummary();
-  }, []);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+  const { budgetSummary, loading, error } = useBudget();
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Budget</h3>
-        <div className="bg-secondary rounded-lg p-4 shadow-sm">
-          <div className="text-center text-muted-foreground">Loading...</div>
-        </div>
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Budget Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="animate-pulse">
+            <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+            <div className="h-4 bg-muted rounded w-1/2"></div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
-  if (!budgetSummary) {
+  if (error || !budgetSummary) {
     return (
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Budget</h3>
-        <div className="bg-secondary rounded-lg p-4 shadow-sm">
-          <div className="text-center text-muted-foreground">Failed to load budget</div>
-        </div>
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            Budget Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            {error || 'No budget data available'}
+          </p>
+        </CardContent>
+      </Card>
     );
   }
+
+  const totalBudget = budgetSummary.totalBudget || 0;
+  const totalExpenses = budgetSummary.totalExpenses || 0;
+  const remaining = totalBudget - totalExpenses;
+  const percentageUsed = totalBudget > 0 ? (totalExpenses / totalBudget) * 100 : 0;
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Budget</h3>
-      
-      <div className="bg-secondary rounded-lg p-4 space-y-3 shadow-sm">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">Total</span>
-          <span className="font-medium">{formatCurrency(budgetSummary.totalBudget)}</span>
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <DollarSign className="h-4 w-4" />
+          Budget Overview
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Total Budget</span>
+            <span className="font-medium">${totalBudget.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Spent</span>
+            <span className="font-medium">${totalExpenses.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Remaining</span>
+            <span className={`font-medium ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${Math.abs(remaining).toLocaleString()}
+            </span>
+          </div>
         </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">Spent</span>
-          <span className="font-medium">{formatCurrency(budgetSummary.totalSpent)}</span>
+
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Progress</span>
+            <span>{percentageUsed.toFixed(1)}%</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all duration-300 ${
+                percentageUsed > 100 ? 'bg-red-500' : percentageUsed > 80 ? 'bg-yellow-500' : 'bg-green-500'
+              }`}
+              style={{ width: `${Math.min(percentageUsed, 100)}%` }}
+            />
+          </div>
         </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">Remaining</span>
-          <span className={`font-medium ${budgetSummary.remaining >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-            {formatCurrency(budgetSummary.remaining)}
-          </span>
-        </div>
-      </div>
-    </div>
+
+        {remaining < 0 && (
+          <div className="flex items-center gap-1 text-xs text-red-600">
+            <TrendingDown className="h-3 w-3" />
+            Over budget by ${Math.abs(remaining).toLocaleString()}
+          </div>
+        )}
+
+        {remaining >= 0 && percentageUsed < 80 && (
+          <div className="flex items-center gap-1 text-xs text-green-600">
+            <TrendingUp className="h-3 w-3" />
+            On track
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
