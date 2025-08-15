@@ -9,6 +9,7 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import backend from '~backend/client';
 import type { Project } from '../contexts/ProjectContext';
 
 interface CreateProjectDialogProps {
@@ -57,15 +58,17 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
     setLoading(true);
 
     try {
-      // Generate a unique ID (in a real app, this would come from the backend)
-      const newProject: Project = {
-        id: Date.now().toString(),
+      const backendProject = await backend.projects.create({
         name: projectName.trim(),
-        dateRange: `${format(startDate, 'd-M-yyyy')} - ${format(endDate, 'd-M-yyyy')}`,
-      };
+        startDate,
+        endDate,
+      });
 
-      // In a real app, you would make an API call here
-      // await backend.projects.create(newProject);
+      const newProject: Project = {
+        id: backendProject.id,
+        name: backendProject.name,
+        dateRange: `${format(backendProject.startDate, 'd-M-yyyy')} - ${format(backendProject.endDate, 'd-M-yyyy')}`,
+      };
 
       onProjectCreated(newProject);
       
@@ -78,6 +81,7 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
       setProjectName('');
       setStartDate(undefined);
       setEndDate(undefined);
+      onOpenChange(false);
     } catch (error) {
       console.error('Error creating project:', error);
       toast({

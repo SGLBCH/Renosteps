@@ -1,0 +1,79 @@
+import { api, APIError } from "encore.dev/api";
+import { projectsDB } from "./db";
+import type { UpdateProjectRequest, Project } from "./types";
+
+interface UpdateProjectParams {
+  id: string;
+}
+
+// Updates an existing project.
+export const update = api<UpdateProjectParams & UpdateProjectRequest, Project>(
+  { expose: true, method: "PUT", path: "/projects/:id" },
+  async (req) => {
+    const { id, ...updates } = req;
+
+    if (updates.name !== undefined && !updates.name.trim()) {
+      throw APIError.invalidArgument("Project name cannot be empty");
+    }
+
+    if (updates.startDate && updates.endDate && updates.endDate <= updates.startDate) {
+      throw APIError.invalidArgument("End date must be after start date");
+    }
+
+    // Build dynamic update query
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
+    let paramIndex = 1;
+
+    if (updates.name !== undefined) {
+      updateFields.push(`name = $${paramIndex++}`);
+      updateValues.push(updates.name.trim());
+    }
+
+    if (updates.startDate !== undefined) {
+      updateFields.push(`start_date = $${paramIndex++}`);
+      updateValues.push(updates.startDate);
+    }
+
+    if (updates.endDate !== undefined) {
+      updateFields.push(`end_date = $${paramIndex++}`);
+      updateValues.push(updates.endDate);
+    }
+
+    if (updateFields.length === 0) {
+      throw APIError.invalidArgument("No fields to update");
+    }
+
+    updateFields.push(`updated_at = NOW()`);
+    updateValues.push(id);
+
+    const query = `
+      UPDATE projects 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING id, name, start_date, end_date, created_at, updated_at
+    `;
+
+    const row = await projectsDB.rawQueryRow<{
+      id: string;
+      name: string;
+      start_date: Date;
+      end_date: Date;
+      created_at: Date;
+      updated_at: Date;
+    }>(query, ...updateValues);
+
+    if (!row) {
+      throw APIError.notFound("Project not found");
+    }
+
+    return {
+      id: row.id,
+      name: row.name,
+      startDate: row.start_date,
+      endDate: row.end_date,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+);

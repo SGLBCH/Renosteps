@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import backend from '~backend/client';
+import type { Project as BackendProject } from '~backend/projects/types';
 
 export interface Project {
   id: string;
@@ -25,38 +27,68 @@ export function useProject() {
   return context;
 }
 
-// Mock data - in a real app this would come from the backend
-const initialProjects: Project[] = [
-  { id: '1', name: 'Home Renovation Project', dateRange: '1-6-2023 - 30-9-2023' },
-  { id: '2', name: 'Kitchen Remodel', dateRange: '15-10-2023 - 15-12-2023' },
-  { id: '3', name: 'Bathroom Upgrade', dateRange: '1-1-2024 - 28-2-2024' },
-];
+// Helper function to format date range
+function formatDateRange(startDate: Date, endDate: Date): string {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  return `${start.getDate()}-${start.getMonth() + 1}-${start.getFullYear()} - ${end.getDate()}-${end.getMonth() + 1}-${end.getFullYear()}`;
+}
+
+// Helper function to convert backend project to frontend project
+function convertBackendProject(backendProject: BackendProject): Project {
+  return {
+    id: backendProject.id,
+    name: backendProject.name,
+    dateRange: formatDateRange(backendProject.startDate, backendProject.endDate),
+  };
+}
 
 interface ProjectProviderProps {
   children: ReactNode;
 }
 
 export function ProjectProvider({ children }: ProjectProviderProps) {
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize with first project
+  // Load projects from backend
   useEffect(() => {
-    if (projects.length > 0 && !currentProject) {
-      setCurrentProjectState(projects[0]);
-    }
-    setLoading(false);
-  }, [projects, currentProject]);
+    const loadProjects = async () => {
+      try {
+        const response = await backend.projects.list();
+        const convertedProjects = response.projects.map(convertBackendProject);
+        setProjects(convertedProjects);
+
+        // Set current project from localStorage or first project
+        const savedProjectId = localStorage.getItem('currentProjectId');
+        if (savedProjectId) {
+          const savedProject = convertedProjects.find(p => p.id === savedProjectId);
+          if (savedProject) {
+            setCurrentProjectState(savedProject);
+          } else if (convertedProjects.length > 0) {
+            setCurrentProjectState(convertedProjects[0]);
+          }
+        } else if (convertedProjects.length > 0) {
+          setCurrentProjectState(convertedProjects[0]);
+        }
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProjects();
+  }, []);
 
   const setCurrentProject = (project: Project) => {
     setCurrentProjectState(project);
-    // In a real app, you might want to persist this to localStorage
     localStorage.setItem('currentProjectId', project.id);
   };
 
   const addProject = (project: Project) => {
-    setProjects(prev => [...prev, project]);
+    setProjects(prev => [project, ...prev]);
   };
 
   const updateProject = (projectId: string, updates: Partial<Project>) => {
@@ -69,17 +101,6 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
       setCurrentProjectState(prev => prev ? { ...prev, ...updates } : null);
     }
   };
-
-  // Load saved project from localStorage on mount
-  useEffect(() => {
-    const savedProjectId = localStorage.getItem('currentProjectId');
-    if (savedProjectId) {
-      const savedProject = projects.find(p => p.id === savedProjectId);
-      if (savedProject) {
-        setCurrentProjectState(savedProject);
-      }
-    }
-  }, [projects]);
 
   return (
     <ProjectContext.Provider value={{

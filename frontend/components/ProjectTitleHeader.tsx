@@ -5,19 +5,44 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Edit2, ChevronDown, Plus } from 'lucide-react';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { useProject } from '../contexts/ProjectContext';
+import { useToast } from '@/components/ui/use-toast';
+import backend from '~backend/client';
 
 export function ProjectTitleHeader() {
   const { currentProject, projects, setCurrentProject, updateProject, addProject } = useProject();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(currentProject?.name || '');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const { toast } = useToast();
 
-  const handleSaveEdit = () => {
-    if (currentProject && editValue.trim()) {
-      const updatedProject = { ...currentProject, name: editValue.trim() };
-      updateProject(currentProject.id, { name: editValue.trim() });
-      setIsEditing(false);
+  const handleSaveEdit = async () => {
+    if (currentProject && editValue.trim() && editValue.trim() !== currentProject.name) {
+      setUpdating(true);
+      try {
+        await backend.projects.update({
+          id: currentProject.id,
+          name: editValue.trim(),
+        });
+        
+        updateProject(currentProject.id, { name: editValue.trim() });
+        toast({
+          title: "Success",
+          description: "Project name updated successfully",
+        });
+      } catch (error) {
+        console.error('Error updating project:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update project name",
+          variant: "destructive",
+        });
+        setEditValue(currentProject.name);
+      } finally {
+        setUpdating(false);
+      }
     }
+    setIsEditing(false);
   };
 
   const handleCancelEdit = () => {
@@ -73,6 +98,7 @@ export function ProjectTitleHeader() {
               onKeyDown={handleKeyDown}
               className="text-3xl font-semibold tracking-tight h-auto border-none p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               autoFocus
+              disabled={updating}
             />
           ) : (
             <h1 className="text-3xl font-semibold tracking-tight">{currentProject.name}</h1>
@@ -126,6 +152,7 @@ export function ProjectTitleHeader() {
             size="sm"
             onClick={() => setIsEditing(true)}
             className="h-8 w-8 p-0 opacity-60 hover:opacity-100 transition-opacity"
+            disabled={updating}
           >
             <Edit2 className="h-4 w-4" />
           </Button>
