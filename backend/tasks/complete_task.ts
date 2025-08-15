@@ -12,6 +12,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
   { expose: true, method: "POST", path: "/tasks/:id/complete", auth: true },
   async (req): Promise<Task> => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     if (!req.id?.trim()) {
       throw APIError.invalidArgument("id is required");
@@ -42,7 +43,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
         }>`
           UPDATE tasks 
           SET status = 'completed', progress = 100, updated_at = NOW()
-          WHERE id = ${taskId} AND user_id = ${auth.userID}
+          WHERE id = ${taskId} AND user_id = ${userId}
           RETURNING id, title, description, category, priority, status, progress, 
                     start_date, end_date, project_id, created_at, updated_at
         `;
@@ -63,7 +64,7 @@ export const completeTask = api<CompleteTaskRequest, Task>(
         }>`
           SELECT id, task_id, title, completed, project_id, created_at, updated_at
           FROM subtasks 
-          WHERE task_id = ${taskId} AND user_id = ${auth.userID}
+          WHERE task_id = ${taskId} AND user_id = ${userId}
           ORDER BY created_at ASC
         `;
 

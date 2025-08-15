@@ -1,4 +1,5 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { inspirationDB } from "./db";
 import type { Inspiration } from "./types";
 
@@ -15,8 +16,10 @@ export interface UpdateInspirationResponse {
 
 // Updates an existing inspiration.
 export const update = api<UpdateInspirationRequest, UpdateInspirationResponse>(
-  { expose: true, method: "PUT", path: "/inspiration/:id" },
+  { expose: true, method: "PUT", path: "/inspiration/:id", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     const { id, title, description, fileUrl } = req;
 
     try {
@@ -37,9 +40,9 @@ export const update = api<UpdateInspirationRequest, UpdateInspirationResponse>(
         throw APIError.invalidArgument("File URL is too long");
       }
 
-      // Check if inspiration exists
+      // Check if inspiration exists and belongs to user
       const existing = await inspirationDB.queryRow`
-        SELECT id FROM inspirations WHERE id = ${id}
+        SELECT id FROM inspirations WHERE id = ${id} AND user_id = ${userId}
       `;
 
       if (!existing) {
@@ -73,13 +76,14 @@ export const update = api<UpdateInspirationRequest, UpdateInspirationResponse>(
       // Add updated_at timestamp
       updates.push(`updated_at = NOW()`);
       
-      // Add id for WHERE clause
+      // Add id and user_id for WHERE clause
       values.push(id);
+      values.push(userId);
 
       const query = `
         UPDATE inspirations 
         SET ${updates.join(', ')}
-        WHERE id = $${paramIndex}
+        WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
       `;
 
       await inspirationDB.rawExec(query, ...values);

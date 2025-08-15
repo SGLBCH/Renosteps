@@ -8,6 +8,7 @@ export const updateExpense = api<UpdateExpenseRequest, BudgetExpense>(
   { expose: true, method: "PUT", path: "/budget/expenses/:id", auth: true },
   async (req) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     const { id, ...updates } = req;
     const now = new Date();
 
@@ -48,7 +49,7 @@ export const updateExpense = api<UpdateExpenseRequest, BudgetExpense>(
 
     updateFields.push(`updated_at = $${paramIndex++}`);
     updateValues.push(now);
-    updateValues.push(auth.userID); // Add user_id for WHERE clause
+    updateValues.push(userId); // Add user_id for WHERE clause
     updateValues.push(id);
 
     const query = `

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, Edit } from "lucide-react";
-import backend from "~backend/client";
+import { useBackend } from "./AuthenticatedBackend";
 import type { Contractor, CreateContractorRequest } from "~backend/contractors/types";
 
 interface ContractorDialogProps {
@@ -19,6 +19,7 @@ export function ContractorDialog({ contractor, onContractorChange, trigger }: Co
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const backend = useBackend();
   
   const [formData, setFormData] = useState<CreateContractorRequest>({
     name: "",

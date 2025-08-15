@@ -1,11 +1,15 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { inspirationDB } from "./db";
 import type { CreateInspirationRequest, Inspiration } from "./types";
 
 // Creates a new inspiration.
 export const create = api<CreateInspirationRequest, Inspiration>(
-  { expose: true, method: "POST", path: "/inspiration" },
+  { expose: true, method: "POST", path: "/inspiration", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
+
     try {
       // Validate input
       if (!req.title || !req.title.trim()) {
@@ -46,8 +50,8 @@ export const create = api<CreateInspirationRequest, Inspiration>(
         created_at: Date;
         updated_at: Date;
       }>`
-        INSERT INTO inspirations (project_id, title, description, category, file_url)
-        VALUES (${req.projectId}, ${req.title.trim()}, ${req.description?.trim() || null}, ${req.category?.trim() || null}, ${req.fileUrl?.trim() || null})
+        INSERT INTO inspirations (project_id, title, description, category, file_url, user_id)
+        VALUES (${req.projectId}, ${req.title.trim()}, ${req.description?.trim() || null}, ${req.category?.trim() || null}, ${req.fileUrl?.trim() || null}, ${userId})
         RETURNING *
       `;
 

@@ -12,7 +12,7 @@ interface JWTPayload {
 export async function generateToken(userId: number, email: string): Promise<string> {
   try {
     // Import jsonwebtoken dynamically
-    const jwt = await import('jsonwebtoken');
+    const { default: jwt } = await import('jsonwebtoken');
     
     const secret = getJWTSecret();
     if (!secret) {
@@ -64,7 +64,7 @@ export async function generateToken(userId: number, email: string): Promise<stri
 // Verify and decode a JWT token
 export async function verifyToken(token: string): Promise<JWTPayload> {
   try {
-    const jwt = await import('jsonwebtoken');
+    const { default: jwt } = await import('jsonwebtoken');
     
     const secret = getJWTSecret();
     if (!secret) {

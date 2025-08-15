@@ -7,7 +7,7 @@ const jwtSecret = secret("JWTSecret");
 export async function hashPassword(password: string): Promise<string> {
   try {
     // Import bcrypt dynamically to avoid issues with bundling
-    const bcrypt = await import('bcrypt');
+    const { default: bcrypt } = await import('bcrypt');
     const saltRounds = 12;
     
     console.log('Hashing password with salt rounds:', saltRounds);
@@ -33,7 +33,7 @@ export async function hashPassword(password: string): Promise<string> {
 // Verify a password against its hash
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   try {
-    const bcrypt = await import('bcrypt');
+    const { default: bcrypt } = await import('bcrypt');
     
     console.log('Verifying password against hash');
     const isValid = await bcrypt.compare(password, hash);

@@ -8,6 +8,7 @@ export const create = api<CreateTaskRequest, Task>(
   { expose: true, method: "POST", path: "/tasks", auth: true },
   async (req): Promise<Task> => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     if (!req.title?.trim()) {
       throw APIError.invalidArgument("title is required");
@@ -33,7 +34,7 @@ export const create = api<CreateTaskRequest, Task>(
           updated_at: Date;
         }>`
           INSERT INTO tasks (title, description, category, priority, status, progress, start_date, end_date, project_id, user_id, created_at, updated_at)
-          VALUES (${req.title.trim()}, ${req.description?.trim() || null}, ${req.category || "other"}, ${req.priority || "medium"}, ${req.status || "not-started"}, ${req.progress || 0}, ${req.startDate || null}, ${req.endDate || null}, ${projectId}, ${auth.userID}, NOW(), NOW())
+          VALUES (${req.title.trim()}, ${req.description?.trim() || null}, ${req.category || "other"}, ${req.priority || "medium"}, ${req.status || "not-started"}, ${req.progress || 0}, ${req.startDate || null}, ${req.endDate || null}, ${projectId}, ${userId}, NOW(), NOW())
           RETURNING id, title, description, category, priority, status, progress, 
                     start_date, end_date, project_id, created_at, updated_at
         `;

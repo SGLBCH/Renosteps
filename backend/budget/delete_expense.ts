@@ -8,9 +8,10 @@ export const deleteExpense = api<DeleteExpenseParams, void>(
   { expose: true, method: "DELETE", path: "/budget/expenses/:id", auth: true },
   async ({ id }) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     const result = await budgetDB.queryRow`
-      DELETE FROM budget_expenses WHERE id = ${id} AND user_id = ${auth.userID} RETURNING id
+      DELETE FROM budget_expenses WHERE id = ${id} AND user_id = ${userId} RETURNING id
     `;
 
     if (!result) {

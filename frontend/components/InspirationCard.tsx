@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { EditInspirationDialog } from './EditInspirationDialog';
 import { Edit, Trash2, ExternalLink, FileText } from 'lucide-react';
-import backend from '~backend/client';
+import { useBackend } from './AuthenticatedBackend';
 import type { Inspiration } from '~backend/inspiration/types';
 
 interface InspirationCardProps {
@@ -17,6 +17,7 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
   const [isDeleting, setIsDeleting] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
+  const backend = useBackend();
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this inspiration?')) {
@@ -25,7 +26,7 @@ export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps)
 
     setIsDeleting(true);
     try {
-      await backend.inspiration.delete({ id: inspiration.id });
+      await backend.inspiration.deleteInspiration({ id: inspiration.id });
       toast({
         title: 'Success',
         description: 'Inspiration deleted successfully',

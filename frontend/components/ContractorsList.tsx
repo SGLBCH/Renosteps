@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Trash2, Phone, Mail, Building, DollarSign, FileText } from "lucide-react";
 import { ContractorDialog } from "./ContractorDialog";
-import backend from "~backend/client";
+import { useBackend } from "./AuthenticatedBackend";
 import type { Contractor } from "~backend/contractors/types";
 
 export function ContractorsList() {
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const backend = useBackend();
 
   const fetchContractors = async () => {
     try {

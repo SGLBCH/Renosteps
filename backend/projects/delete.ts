@@ -13,6 +13,7 @@ export const deleteProject = api<DeleteProjectParams, void>(
   { expose: true, method: "DELETE", path: "/projects/:id", auth: true },
   async ({ id }) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     // Convert string ID to number for database query
     const projectId = parseInt(id, 10);
@@ -23,7 +24,7 @@ export const deleteProject = api<DeleteProjectParams, void>(
     try {
       // Check if project exists and belongs to the user
       const existingProject = await projectsDB.queryRow`
-        SELECT id FROM projects WHERE id = ${projectId} AND user_id = ${auth.userID}
+        SELECT id FROM projects WHERE id = ${projectId} AND user_id = ${userId}
       `;
 
       if (!existingProject) {
@@ -36,27 +37,27 @@ export const deleteProject = api<DeleteProjectParams, void>(
       // 1. Delete subtasks first (they reference tasks and have project_id) - from tasks database
       await tasksDB.exec`
         DELETE FROM subtasks 
-        WHERE project_id = ${id}
+        WHERE project_id = ${id} AND user_id = ${userId}
       `;
 
       // 2. Delete tasks - from tasks database
       await tasksDB.exec`
-        DELETE FROM tasks WHERE project_id = ${id}
+        DELETE FROM tasks WHERE project_id = ${id} AND user_id = ${userId}
       `;
 
       // 3. Delete budget expenses - from budget database
       await budgetDB.exec`
-        DELETE FROM budget_expenses WHERE project_id = ${id}
+        DELETE FROM budget_expenses WHERE project_id = ${id} AND user_id = ${userId}
       `;
 
       // 4. Delete budget settings - from budget database
       await budgetDB.exec`
-        DELETE FROM budget_settings WHERE project_id = ${id}
+        DELETE FROM budget_settings WHERE project_id = ${id} AND user_id = ${userId}
       `;
 
       // 5. Finally delete the project itself (using numeric ID) - from projects database
       await projectsDB.exec`
-        DELETE FROM projects WHERE id = ${projectId} AND user_id = ${auth.userID}
+        DELETE FROM projects WHERE id = ${projectId} AND user_id = ${userId}
       `;
 
     } catch (error) {

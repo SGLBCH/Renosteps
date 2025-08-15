@@ -12,6 +12,7 @@ export const list = api<ListTasksRequest, ListTasksResponse>(
   { expose: true, method: "GET", path: "/tasks", auth: true },
   async (req): Promise<ListTasksResponse> => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     try {
       // Use timeout wrapper for database operations
@@ -23,7 +24,7 @@ export const list = api<ListTasksRequest, ListTasksResponse>(
           WHERE user_id = $1
         `;
         
-        const queryParams: any[] = [auth.userID];
+        const queryParams: any[] = [userId];
         
         if (req.projectId) {
           taskQuery += ` AND project_id = $2`;
@@ -60,7 +61,7 @@ export const list = api<ListTasksRequest, ListTasksResponse>(
           WHERE task_id = ANY($1) AND user_id = $2
         `;
         
-        const subtaskParams = [taskIds, auth.userID];
+        const subtaskParams = [taskIds, userId];
         
         if (req.projectId) {
           subtaskQuery += ` AND project_id = $3`;

@@ -1,11 +1,15 @@
 import { api } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { inspirationDB } from "./db";
 import type { ListInspirationsRequest, ListInspirationsResponse, Inspiration, InspirationFile } from "./types";
 
 // Lists all inspirations for a project.
 export const list = api<ListInspirationsRequest, ListInspirationsResponse>(
-  { expose: true, method: "GET", path: "/inspiration/project/:projectId" },
+  { expose: true, method: "GET", path: "/inspiration/project/:projectId", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
+
     const inspirationRows = await inspirationDB.queryAll<{
       id: number;
       project_id: number;
@@ -17,7 +21,7 @@ export const list = api<ListInspirationsRequest, ListInspirationsResponse>(
       updated_at: Date;
     }>`
       SELECT * FROM inspirations 
-      WHERE project_id = ${req.projectId}
+      WHERE project_id = ${req.projectId} AND user_id = ${userId}
       ORDER BY created_at DESC
     `;
 

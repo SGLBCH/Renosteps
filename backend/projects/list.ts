@@ -8,6 +8,7 @@ export const list = api<void, ProjectsResponse>(
   { expose: true, method: "GET", path: "/projects", auth: true },
   async () => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     const rows = await projectsDB.queryAll<{
       id: string;
@@ -19,7 +20,7 @@ export const list = api<void, ProjectsResponse>(
     }>`
       SELECT id, name, start_date, end_date, created_at, updated_at
       FROM projects
-      WHERE user_id = ${auth.userID}
+      WHERE user_id = ${userId}
       ORDER BY created_at DESC
     `;
 

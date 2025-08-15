@@ -1,11 +1,14 @@
 import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { contractorsDB } from "./db";
 import type { UpdateContractorRequest, Contractor } from "./types";
 
 // Updates an existing contractor.
 export const update = api<UpdateContractorRequest, Contractor>(
-  { expose: true, method: "PUT", path: "/contractors/:id" },
+  { expose: true, method: "PUT", path: "/contractors/:id", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     const updates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
@@ -45,11 +48,12 @@ export const update = api<UpdateContractorRequest, Contractor>(
 
     updates.push(`updated_at = NOW()`);
     values.push(req.id);
+    values.push(userId);
 
     const query = `
       UPDATE contractors 
       SET ${updates.join(', ')}
-      WHERE id = $${paramIndex}
+      WHERE id = $${paramIndex++} AND user_id = $${paramIndex}
       RETURNING id, name, role, phone, email, company, hourly_rate as "hourlyRate", notes, created_at as "createdAt", updated_at as "updatedAt"
     `;
 

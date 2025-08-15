@@ -1,4 +1,5 @@
-import { api } from "encore.dev/api";
+import { api, APIError } from "encore.dev/api";
+import { getAuthData } from "~encore/auth";
 import { Bucket } from "encore.dev/storage/objects";
 import { inspirationDB } from "./db";
 
@@ -14,14 +15,20 @@ interface GetFileUrlResponse {
 
 // Gets a signed download URL for an inspiration file.
 export const getFileUrl = api<GetFileUrlRequest, GetFileUrlResponse>(
-  { expose: true, method: "GET", path: "/inspiration/file/:fileId/url" },
+  { expose: true, method: "GET", path: "/inspiration/file/:fileId/url", auth: true },
   async (req) => {
+    const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
+
     const fileRow = await inspirationDB.queryRow<{ filename: string }>`
-      SELECT filename FROM inspiration_files WHERE id = ${req.fileId}
+      SELECT f.filename 
+      FROM inspiration_files f
+      JOIN inspirations i ON f.inspiration_id = i.id
+      WHERE f.id = ${req.fileId} AND i.user_id = ${userId}
     `;
 
     if (!fileRow) {
-      throw new Error("File not found");
+      throw APIError.notFound("File not found");
     }
 
     const { url } = await inspirationFiles.signedDownloadUrl(fileRow.filename, {

@@ -8,6 +8,7 @@ export const create = api<CreateProjectRequest, Project>(
   { expose: true, method: "POST", path: "/projects", auth: true },
   async (req) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     if (!req.name.trim()) {
       throw APIError.invalidArgument("Project name is required");
@@ -26,7 +27,7 @@ export const create = api<CreateProjectRequest, Project>(
       updated_at: Date;
     }>`
       INSERT INTO projects (name, start_date, end_date, user_id)
-      VALUES (${req.name.trim()}, ${req.startDate}, ${req.endDate}, ${auth.userID})
+      VALUES (${req.name.trim()}, ${req.startDate}, ${req.endDate}, ${userId})
       RETURNING id, name, start_date, end_date, created_at, updated_at
     `;
 

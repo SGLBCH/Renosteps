@@ -8,6 +8,7 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
   { expose: true, method: "PUT", path: "/subtasks/:id", auth: true },
   async (req) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     const { id, ...updates } = req;
 
     try {
@@ -19,7 +20,7 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
 
       // Check if subtask exists and belongs to the user
       const existingSubtask = await tasksDB.queryRow`
-        SELECT id FROM subtasks WHERE id = ${subtaskId} AND user_id = ${auth.userID}
+        SELECT id FROM subtasks WHERE id = ${subtaskId} AND user_id = ${userId}
       `;
 
       if (!existingSubtask) {
@@ -44,7 +45,7 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
       }
 
       updateFields.push("updated_at = NOW()");
-      updateValues.push(auth.userID); // Add user_id for WHERE clause
+      updateValues.push(userId); // Add user_id for WHERE clause
       updateValues.push(subtaskId); // Use the converted number ID
 
       const query = `
@@ -67,7 +68,7 @@ export const updateSubtask = api<UpdateSubtaskRequest, Subtask>(
         SELECT 
           id, task_id, title, completed, project_id, created_at, updated_at
         FROM subtasks 
-        WHERE id = ${subtaskId} AND user_id = ${auth.userID}
+        WHERE id = ${subtaskId} AND user_id = ${userId}
       `;
 
       if (!updatedSubtask) {

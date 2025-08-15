@@ -8,6 +8,7 @@ export const getSummary = api<BudgetSummaryRequest, BudgetSummaryResponse>(
   { expose: true, method: "GET", path: "/budget/summary", auth: true },
   async (req) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     // Convert projectId to string if it's a number, default to '1' if not specified
     const projectId = req.projectId ? String(req.projectId) : '1';
@@ -15,7 +16,7 @@ export const getSummary = api<BudgetSummaryRequest, BudgetSummaryResponse>(
     // Get budget settings for the project
     const budgetSettings = await budgetDB.queryRow<{ total_budget: number }>`
       SELECT total_budget FROM budget_settings 
-      WHERE project_id = ${projectId} AND user_id = ${auth.userID}
+      WHERE project_id = ${projectId} AND user_id = ${userId}
       ORDER BY id DESC LIMIT 1
     `;
 
@@ -28,7 +29,7 @@ export const getSummary = api<BudgetSummaryRequest, BudgetSummaryResponse>(
         id, category, description, amount, date, project_id as "projectId",
         created_at as "createdAt", updated_at as "updatedAt"
       FROM budget_expenses
-      WHERE project_id = ${projectId} AND user_id = ${auth.userID}
+      WHERE project_id = ${projectId} AND user_id = ${userId}
       ORDER BY date DESC, created_at DESC
     `) {
       expenses.push(row);

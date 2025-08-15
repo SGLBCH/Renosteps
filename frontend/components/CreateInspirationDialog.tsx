@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Upload, X, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import backend from '~backend/client';
+import { useBackend } from './AuthenticatedBackend';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface CreateInspirationDialogProps {
@@ -25,6 +25,7 @@ export function CreateInspirationDialog({ projectId }: CreateInspirationDialogPr
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const backend = useBackend();
 
   const validateFile = (file: File): string[] => {
     const errors: string[] = [];

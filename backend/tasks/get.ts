@@ -8,6 +8,7 @@ export const get = api<GetTaskParams, Task>(
   { expose: true, method: "GET", path: "/tasks/:id", auth: true },
   async ({ id }) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     try {
       // Convert string ID to number for database query
@@ -34,7 +35,7 @@ export const get = api<GetTaskParams, Task>(
           id, title, description, category, priority, status, progress,
           start_date, end_date, project_id, created_at, updated_at
         FROM tasks 
-        WHERE id = ${taskId} AND user_id = ${auth.userID}
+        WHERE id = ${taskId} AND user_id = ${userId}
       `;
 
       if (!task) {
@@ -55,7 +56,7 @@ export const get = api<GetTaskParams, Task>(
         SELECT 
           id, task_id, title, completed, project_id, created_at, updated_at
         FROM subtasks 
-        WHERE task_id = ${taskId} AND user_id = ${auth.userID}
+        WHERE task_id = ${taskId} AND user_id = ${userId}
         ORDER BY created_at ASC
       `;
 

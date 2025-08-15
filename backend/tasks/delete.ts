@@ -8,6 +8,7 @@ export const deleteTask = api<DeleteTaskParams, void>(
   { expose: true, method: "DELETE", path: "/tasks/:id", auth: true },
   async ({ id }) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     try {
       // Convert string ID to number for database query
@@ -17,14 +18,14 @@ export const deleteTask = api<DeleteTaskParams, void>(
       }
 
       const existingTask = await tasksDB.queryRow`
-        SELECT id FROM tasks WHERE id = ${taskId} AND user_id = ${auth.userID}
+        SELECT id FROM tasks WHERE id = ${taskId} AND user_id = ${userId}
       `;
 
       if (!existingTask) {
         throw APIError.notFound("Task not found");
       }
 
-      await tasksDB.exec`DELETE FROM tasks WHERE id = ${taskId} AND user_id = ${auth.userID}`;
+      await tasksDB.exec`DELETE FROM tasks WHERE id = ${taskId} AND user_id = ${userId}`;
     } catch (error) {
       console.error('Error deleting task:', error);
       

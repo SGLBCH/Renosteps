@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Upload, X, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import backend from '~backend/client';
+import { useBackend } from './AuthenticatedBackend';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Inspiration } from '~backend/inspiration/types';
 
@@ -28,6 +28,7 @@ export function EditInspirationDialog({ inspiration, open, onOpenChange, onUpdat
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const backend = useBackend();
 
   useEffect(() => {
     if (open) {

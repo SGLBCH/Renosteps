@@ -8,6 +8,7 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
   { expose: true, method: "POST", path: "/tasks/:taskId/subtasks", auth: true },
   async (req) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     if (!req.title?.trim()) {
       throw APIError.invalidArgument("title is required");
@@ -25,7 +26,7 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
         id: number;
         project_id: string | null;
       }>`
-        SELECT id, project_id FROM tasks WHERE id = ${taskId} AND user_id = ${auth.userID}
+        SELECT id, project_id FROM tasks WHERE id = ${taskId} AND user_id = ${userId}
       `;
 
       if (!parentTask) {
@@ -45,7 +46,7 @@ export const createSubtask = api<CreateSubtaskRequest, Subtask>(
         updated_at: Date;
       }>`
         INSERT INTO subtasks (task_id, title, completed, project_id, user_id, created_at, updated_at)
-        VALUES (${taskId}, ${req.title.trim()}, false, ${projectId}, ${auth.userID}, NOW(), NOW())
+        VALUES (${taskId}, ${req.title.trim()}, false, ${projectId}, ${userId}, NOW(), NOW())
         RETURNING id, task_id, title, completed, project_id, created_at, updated_at
       `;
 

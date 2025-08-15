@@ -8,6 +8,7 @@ export const deleteSubtask = api<DeleteSubtaskParams, void>(
   { expose: true, method: "DELETE", path: "/subtasks/:id", auth: true },
   async ({ id }) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     
     try {
       // Convert string ID to number for database query
@@ -17,14 +18,14 @@ export const deleteSubtask = api<DeleteSubtaskParams, void>(
       }
 
       const existingSubtask = await tasksDB.queryRow`
-        SELECT id FROM subtasks WHERE id = ${subtaskId} AND user_id = ${auth.userID}
+        SELECT id FROM subtasks WHERE id = ${subtaskId} AND user_id = ${userId}
       `;
 
       if (!existingSubtask) {
         throw APIError.notFound("Subtask not found");
       }
 
-      await tasksDB.exec`DELETE FROM subtasks WHERE id = ${subtaskId} AND user_id = ${auth.userID}`;
+      await tasksDB.exec`DELETE FROM subtasks WHERE id = ${subtaskId} AND user_id = ${userId}`;
     } catch (error) {
       console.error('Error deleting subtask:', error);
       

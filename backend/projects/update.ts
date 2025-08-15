@@ -12,6 +12,7 @@ export const update = api<UpdateProjectParams & UpdateProjectRequest, Project>(
   { expose: true, method: "PUT", path: "/projects/:id", auth: true },
   async (req) => {
     const auth = getAuthData()!;
+    const userId = parseInt(auth.userID, 10);
     const { id, ...updates } = req;
 
     if (updates.name !== undefined && !updates.name.trim()) {
@@ -53,7 +54,7 @@ export const update = api<UpdateProjectParams & UpdateProjectRequest, Project>(
     }
 
     updateFields.push(`updated_at = NOW()`);
-    updateValues.push(auth.userID); // Add user_id for WHERE clause
+    updateValues.push(userId); // Add user_id for WHERE clause
     updateValues.push(projectId); // Use the converted number ID
 
     const query = `

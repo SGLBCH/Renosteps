@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import backend from '~backend/client';
+import { useBackend } from '../components/AuthenticatedBackend';
 import type { 
   CreateInspirationRequest, 
   Inspiration, 
@@ -8,6 +8,7 @@ import type {
 } from '~backend/inspiration/types';
 
 export function useInspiration(projectId: number) {
+  const backend = useBackend();
   return useQuery({
     queryKey: ['inspiration', projectId],
     queryFn: async () => {
@@ -20,6 +21,7 @@ export function useInspiration(projectId: number) {
 
 export function useCreateInspiration() {
   const queryClient = useQueryClient();
+  const backend = useBackend();
 
   return useMutation({
     mutationFn: async (data: CreateInspirationRequest) => {
@@ -32,6 +34,7 @@ export function useCreateInspiration() {
 }
 
 export function useUploadFile() {
+  const backend = useBackend();
   return useMutation({
     mutationFn: async (data: UploadFileRequest) => {
       return await backend.inspiration.uploadFile(data);
@@ -41,6 +44,7 @@ export function useUploadFile() {
 
 export function useDeleteInspiration() {
   const queryClient = useQueryClient();
+  const backend = useBackend();
 
   return useMutation({
     mutationFn: async (data: DeleteInspirationRequest) => {
@@ -53,6 +57,7 @@ export function useDeleteInspiration() {
 }
 
 export function useFileUrl(fileId: number) {
+  const backend = useBackend();
   return useQuery({
     queryKey: ['file-url', fileId],
     queryFn: async () => {
