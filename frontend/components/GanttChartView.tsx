@@ -133,6 +133,26 @@ function GanttChartContent() {
     setCurrentDate(newDate);
   };
 
+  const handleZoomIn = () => {
+    // Zoom in: month -> week -> day
+    if (viewMode === 'month') {
+      setViewMode('week');
+    } else if (viewMode === 'week') {
+      setViewMode('day');
+    }
+    // If already at day view, do nothing
+  };
+
+  const handleZoomOut = () => {
+    // Zoom out: day -> week -> month
+    if (viewMode === 'day') {
+      setViewMode('week');
+    } else if (viewMode === 'week') {
+      setViewMode('month');
+    }
+    // If already at month view, do nothing
+  };
+
   const calculateTaskBarPosition = (task: Task) => {
     if (!task.startDate || !task.endDate) return null;
     
@@ -406,10 +426,24 @@ function GanttChartContent() {
 
             {/* Zoom Controls */}
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrevious}>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-8 w-8" 
+                onClick={handleZoomOut}
+                disabled={viewMode === 'month'}
+                title="Zoom out"
+              >
                 <ZoomOut className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNext}>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-8 w-8" 
+                onClick={handleZoomIn}
+                disabled={viewMode === 'day'}
+                title="Zoom in"
+              >
                 <ZoomIn className="h-4 w-4" />
               </Button>
             </div>
