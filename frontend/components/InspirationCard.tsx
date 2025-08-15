@@ -1,146 +1,127 @@
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Edit, Trash2 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { useQueryClient } from '@tanstack/react-query';
+import { EditInspirationDialog } from './EditInspirationDialog';
+import { Edit, Trash2, ExternalLink, FileText } from 'lucide-react';
 import backend from '~backend/client';
 import type { Inspiration } from '~backend/inspiration/types';
-import { EditInspirationDialog } from './EditInspirationDialog';
 
 interface InspirationCardProps {
   inspiration: Inspiration;
+  onUpdate: () => void;
 }
 
-export function InspirationCard({ inspiration }: InspirationCardProps) {
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
+export function InspirationCard({ inspiration, onUpdate }: InspirationCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this inspiration?')) {
+      return;
+    }
+
     setIsDeleting(true);
     try {
       await backend.inspiration.delete({ id: inspiration.id });
-      
-      // Refresh the inspiration list
-      queryClient.invalidateQueries({ queryKey: ['inspiration', inspiration.projectId] });
-      
       toast({
-        title: "Success",
-        description: "Inspiration deleted successfully",
+        title: 'Success',
+        description: 'Inspiration deleted successfully',
       });
+      onUpdate();
     } catch (error) {
       console.error('Failed to delete inspiration:', error);
       toast({
-        title: "Error",
-        description: "Failed to delete inspiration",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to delete inspiration. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsDeleting(false);
-      setShowDeleteDialog(false);
+    }
+  };
+
+  const handleViewFile = async () => {
+    if (!inspiration.fileUrl) return;
+    
+    try {
+      const response = await backend.inspiration.getFileUrl({ id: inspiration.id });
+      window.open(response.url, '_blank');
+    } catch (error) {
+      console.error('Failed to get file URL:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to open file. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
   return (
-    <>
-      <Card className="group relative overflow-hidden hover:shadow-md transition-shadow">
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => setShowDeleteDialog(true)}
-                className="text-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-4">
+        <h2 className="text-xl font-semibold leading-tight">{inspiration.title}</h2>
+      </CardHeader>
+      <CardContent className="flex-1 flex flex-col space-y-4">
+        {/* Image/File Preview Section */}
+        {inspiration.fileUrl ? (
+          <div className="relative bg-muted rounded-lg overflow-hidden aspect-video flex items-center justify-center">
+            <Button
+              variant="ghost"
+              onClick={handleViewFile}
+              className="h-full w-full flex flex-col items-center justify-center space-y-2 hover:bg-muted/80"
+            >
+              <FileText className="h-12 w-12 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Click to view file</span>
+            </Button>
+          </div>
+        ) : (
+          <div className="bg-muted rounded-lg aspect-video flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto" />
+              <span className="text-sm text-muted-foreground">No file attached</span>
+            </div>
+          </div>
+        )}
 
-        <div className="aspect-square relative">
-          <img
-            src={inspiration.fileUrl}
-            alt={inspiration.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
+        {/* Description */}
+        {inspiration.description && (
+          <p className="text-sm text-muted-foreground flex-1">{inspiration.description}</p>
+        )}
         
-        <CardContent className="p-4">
-          <h3 className="font-semibold text-sm mb-1 line-clamp-2">
-            {inspiration.title}
-          </h3>
-          {inspiration.description && (
-            <p className="text-xs text-muted-foreground line-clamp-3">
-              {inspiration.description}
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Edit Dialog */}
-      <EditInspirationDialog
-        inspiration={inspiration}
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Inspiration</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{inspiration.title}"? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+        {/* Category Badge */}
+        {inspiration.category && (
+          <Badge variant="secondary" className="w-fit">
+            {inspiration.category}
+          </Badge>
+        )}
+        
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between pt-2 mt-auto">
+          <div className="text-xs text-muted-foreground">
+            Created {new Date(inspiration.createdAt).toLocaleDateString()}
+          </div>
+          <div className="flex items-center space-x-2">
+            <EditInspirationDialog inspiration={inspiration} onUpdate={onUpdate}>
+              <Button variant="outline" size="sm">
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            </EditInspirationDialog>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleDelete}
               disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="text-destructive hover:text-destructive border-destructive/20 hover:border-destructive/30"
             >
-              {isDeleting ? (
-                <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
