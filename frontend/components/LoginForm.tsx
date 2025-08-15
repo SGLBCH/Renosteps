@@ -8,7 +8,7 @@ import { AlertCircle } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 
 interface LoginFormProps {
-  onToggleMode: () => void;
+  onToggleMode?: () => void;
 }
 
 export function LoginForm({ onToggleMode }: LoginFormProps) {
@@ -55,8 +55,9 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               id="email"
               type="email"
               value={email}
+              autoFocus
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              placeholder="you@example.com"
               required
               disabled={loading}
             />
@@ -69,7 +70,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="Your password"
               required
               disabled={loading}
             />
@@ -79,16 +80,18 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
 
-          <div className="text-center">
-            <Button
-              type="button"
-              variant="link"
-              onClick={onToggleMode}
-              disabled={loading}
-            >
-              Don't have an account? Sign up
-            </Button>
-          </div>
+          {onToggleMode && (
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="link"
+                onClick={onToggleMode}
+                disabled={loading}
+              >
+                Don't have an account? Sign up
+              </Button>
+            </div>
+          )}
         </form>
       </CardContent>
     </Card>
