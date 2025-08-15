@@ -56,8 +56,10 @@ export const register = api<RegisterRequest, AuthResponse>(
       console.log('Hashing password for user:', req.email);
       const passwordHash = await hashPassword(password);
 
-      // Create user
+      // Create user - with detailed logging for database operations
       console.log('Creating user in database:', req.email);
+      console.log('Database operation: INSERT INTO users with columns: email, password_hash, created_at');
+      
       const user = await authDB.queryRow<{
         id: number;
         email: string;
@@ -69,7 +71,8 @@ export const register = api<RegisterRequest, AuthResponse>(
       `;
 
       if (!user) {
-        console.error('Failed to create user - no data returned');
+        console.error('Failed to create user - no data returned from INSERT operation');
+        console.error('This suggests the INSERT statement executed but RETURNING clause failed');
         throw APIError.internal("Failed to create account. Please try again.");
       }
 
@@ -90,7 +93,42 @@ export const register = api<RegisterRequest, AuthResponse>(
         },
       };
     } catch (err: any) {
-      console.error('Registration error:', err);
+      console.error('Registration error caught:', err);
+      console.error("Detailed registration error:", err);
+      
+      // Log additional database-specific information
+      if (err && typeof err === 'object') {
+        console.error('Error type:', typeof err);
+        console.error('Error constructor:', err.constructor?.name);
+        console.error('Error message:', err.message);
+        console.error('Error stack:', err.stack);
+        
+        // Log database-specific error details
+        if (err.code) {
+          console.error('Database error code:', err.code);
+        }
+        if (err.detail) {
+          console.error('Database error detail:', err.detail);
+        }
+        if (err.hint) {
+          console.error('Database error hint:', err.hint);
+        }
+        if (err.position) {
+          console.error('Database error position:', err.position);
+        }
+        if (err.routine) {
+          console.error('Database error routine:', err.routine);
+        }
+        if (err.schema) {
+          console.error('Database error schema:', err.schema);
+        }
+        if (err.table) {
+          console.error('Database error table:', err.table);
+        }
+        if (err.column) {
+          console.error('Database error column:', err.column);
+        }
+      }
       
       if (err instanceof APIError) {
         throw err;
@@ -98,6 +136,19 @@ export const register = api<RegisterRequest, AuthResponse>(
       
       // Handle database errors with user-friendly messages
       if (err instanceof Error) {
+        // Check for specific database column errors
+        if (err.message.includes('password_hash') || err.message.includes('column "password_hash"')) {
+          console.error('CRITICAL: password_hash column missing from users table');
+          console.error('This indicates the database migration has not been applied to staging');
+          throw APIError.internal("Database schema error. Please contact support.");
+        }
+        
+        if (err.message.includes('relation "users" does not exist')) {
+          console.error('CRITICAL: users table does not exist');
+          console.error('This indicates the database migration has not been applied to staging');
+          throw APIError.internal("Database schema error. Please contact support.");
+        }
+        
         if (err.message.includes('unique') || err.message.includes('duplicate')) {
           throw APIError.alreadyExists("An account with this email address already exists");
         } else if (err.message.includes('connection') || err.message.includes('timeout')) {
