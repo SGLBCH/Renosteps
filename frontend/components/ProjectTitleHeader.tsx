@@ -66,6 +66,49 @@ export function ProjectTitleHeader() {
           <h1 className="text-3xl font-semibold tracking-tight">{currentProject.name}</h1>
         )}
         
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 opacity-60 hover:opacity-100 transition-opacity"
+            >
+              <ChevronDown className="h-6 w-6 text-3xl font-semibold" style={{ fontSize: '1.875rem', fontWeight: '600' }} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-80">
+            {mockProjects.length > 0 ? (
+              <>
+                {mockProjects.map((project) => (
+                  <DropdownMenuItem
+                    key={project.id}
+                    onClick={() => handleProjectSelect(project)}
+                    className="flex flex-col items-start p-3 cursor-pointer"
+                  >
+                    <div className="text-3xl font-semibold tracking-tight">{project.name}</div>
+                    <div className="text-sm text-muted-foreground">{project.dateRange}</div>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  onClick={handleAddNewProject}
+                  className="flex items-center gap-2 p-3 cursor-pointer border-t"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="text-3xl font-semibold tracking-tight">Add new project</span>
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <DropdownMenuItem
+                onClick={handleAddNewProject}
+                className="flex items-center gap-2 p-3 cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="text-3xl font-semibold tracking-tight">Add new project</span>
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
         <Button
           variant="ghost"
           size="sm"
@@ -75,49 +118,6 @@ export function ProjectTitleHeader() {
           <Edit2 className="h-4 w-4" />
         </Button>
       </div>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 opacity-60 hover:opacity-100 transition-opacity"
-          >
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-80">
-          {mockProjects.length > 0 ? (
-            <>
-              {mockProjects.map((project) => (
-                <DropdownMenuItem
-                  key={project.id}
-                  onClick={() => handleProjectSelect(project)}
-                  className="flex flex-col items-start p-3 cursor-pointer"
-                >
-                  <div className="font-medium">{project.name}</div>
-                  <div className="text-sm text-muted-foreground">{project.dateRange}</div>
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuItem
-                onClick={handleAddNewProject}
-                className="flex items-center gap-2 p-3 cursor-pointer border-t"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add new project</span>
-              </DropdownMenuItem>
-            </>
-          ) : (
-            <DropdownMenuItem
-              onClick={handleAddNewProject}
-              className="flex items-center gap-2 p-3 cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add new project</span>
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
 
       <div className="ml-4">
         <p className="text-muted-foreground leading-7">{currentProject.dateRange}</p>
