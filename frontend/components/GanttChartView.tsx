@@ -160,54 +160,78 @@ function GanttChartContent() {
     const taskEnd = new Date(task.endDate);
     const totalColumns = dateHeaders.length;
     
-    let startColumn = -1;
-    let endColumn = -1;
+    let startPosition = -1;
+    let endPosition = -1;
     
     if (viewMode === 'day') {
-      // Find which day columns the task spans
-      dateHeaders.forEach((header, index) => {
-        const headerDate = header.date;
-        const nextDay = new Date(headerDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        
-        if (taskStart <= nextDay && taskEnd >= headerDate) {
-          if (startColumn === -1) startColumn = index;
-          endColumn = index;
-        }
-      });
+      // Calculate precise position within day columns
+      const firstHeaderDate = dateHeaders[0].date;
+      const lastHeaderDate = new Date(dateHeaders[dateHeaders.length - 1].date);
+      lastHeaderDate.setDate(lastHeaderDate.getDate() + 1); // End of last day
+      
+      // Calculate start position
+      const daysSinceStart = (taskStart.getTime() - firstHeaderDate.getTime()) / (1000 * 60 * 60 * 24);
+      startPosition = Math.max(0, daysSinceStart);
+      
+      // Calculate end position
+      const daysSinceStartForEnd = (taskEnd.getTime() - firstHeaderDate.getTime()) / (1000 * 60 * 60 * 24);
+      endPosition = Math.min(totalColumns, daysSinceStartForEnd);
+      
     } else if (viewMode === 'week') {
-      // Find which week columns the task spans
-      dateHeaders.forEach((header, index) => {
-        const weekStart = header.date;
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        weekEnd.setHours(23, 59, 59, 999);
-        
-        if (taskStart <= weekEnd && taskEnd >= weekStart) {
-          if (startColumn === -1) startColumn = index;
-          endColumn = index;
-        }
-      });
+      // Calculate precise position within week columns
+      const firstWeekStart = dateHeaders[0].date;
+      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+      
+      // Calculate start position
+      const weeksSinceStart = (taskStart.getTime() - firstWeekStart.getTime()) / msPerWeek;
+      startPosition = Math.max(0, weeksSinceStart);
+      
+      // Calculate end position
+      const weeksSinceStartForEnd = (taskEnd.getTime() - firstWeekStart.getTime()) / msPerWeek;
+      endPosition = Math.min(totalColumns, weeksSinceStartForEnd);
+      
     } else if (viewMode === 'month') {
-      // Find which month columns the task spans
-      dateHeaders.forEach((header, index) => {
-        const monthStart = new Date(header.date.getFullYear(), header.date.getMonth(), 1);
-        const monthEnd = new Date(header.date.getFullYear(), header.date.getMonth() + 1, 0);
-        monthEnd.setHours(23, 59, 59, 999);
-        
-        if (taskStart <= monthEnd && taskEnd >= monthStart) {
-          if (startColumn === -1) startColumn = index;
-          endColumn = index;
-        }
-      });
+      // Calculate precise position within month columns
+      const firstMonthStart = new Date(dateHeaders[0].date.getFullYear(), dateHeaders[0].date.getMonth(), 1);
+      
+      // Calculate start position
+      const startYear = taskStart.getFullYear();
+      const startMonth = taskStart.getMonth();
+      const startDay = taskStart.getDate();
+      const firstYear = firstMonthStart.getFullYear();
+      const firstMonth = firstMonthStart.getMonth();
+      
+      const monthsSinceStart = (startYear - firstYear) * 12 + (startMonth - firstMonth);
+      const daysInStartMonth = new Date(startYear, startMonth + 1, 0).getDate();
+      const dayProgress = (startDay - 1) / daysInStartMonth; // 0 to 1
+      startPosition = Math.max(0, monthsSinceStart + dayProgress);
+      
+      // Calculate end position
+      const endYear = taskEnd.getFullYear();
+      const endMonth = taskEnd.getMonth();
+      const endDay = taskEnd.getDate();
+      
+      const monthsSinceStartForEnd = (endYear - firstYear) * 12 + (endMonth - firstMonth);
+      const daysInEndMonth = new Date(endYear, endMonth + 1, 0).getDate();
+      const dayProgressEnd = endDay / daysInEndMonth; // 0 to 1
+      endPosition = Math.min(totalColumns, monthsSinceStartForEnd + dayProgressEnd);
     }
     
-    if (startColumn === -1 || endColumn === -1) return null;
+    if (startPosition < 0 || endPosition < 0 || startPosition >= endPosition) return null;
     
-    const width = ((endColumn - startColumn + 1) / totalColumns) * 100;
-    const left = (startColumn / totalColumns) * 100;
+    const width = ((endPosition - startPosition) / totalColumns) * 100;
+    const left = (startPosition / totalColumns) * 100;
     
-    return { left: `${left}%`, width: `${width}%`, startColumn, endColumn };
+    // Ensure minimum width for visibility
+    const minWidth = 2; // 2% minimum width
+    const adjustedWidth = Math.max(width, minWidth);
+    
+    return { 
+      left: `${Math.max(0, Math.min(left, 100 - adjustedWidth))}%`, 
+      width: `${adjustedWidth}%`, 
+      startColumn: Math.floor(startPosition), 
+      endColumn: Math.ceil(endPosition) 
+    };
   };
 
   const getTaskBarColor = (priority: string) => {
@@ -505,7 +529,7 @@ function GanttChartContent() {
                         </div>
                         
                         {/* Timeline Grid */}
-                        <div className="relative" style={{ gridColumn: `2 / ${dateHeaders.length + 2}` }}>
+                        <div className="relative overflow-visible" style={{ gridColumn: `2 / ${dateHeaders.length + 2}` }}>
                           <div className={`grid h-16`} style={{ gridTemplateColumns: `repeat(${dateHeaders.length}, 1fr)` }}>
                             {dateHeaders.map((_, index) => (
                               <div key={index} className="border-r border-border last:border-r-0"></div>
@@ -515,7 +539,7 @@ function GanttChartContent() {
                           {/* Original Task Bar */}
                           {barPosition && (
                             <div
-                              className={`absolute top-1/2 transform -translate-y-1/2 h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm cursor-move select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity`}
+                              className={`absolute top-1/2 transform -translate-y-1/2 h-6 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm cursor-move select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity z-10`}
                               style={{
                                 left: barPosition.left,
                                 width: barPosition.width,
