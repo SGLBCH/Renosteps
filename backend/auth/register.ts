@@ -94,6 +94,8 @@ export const register = api<RegisterRequest, AuthResponse>(
       };
     } catch (err: any) {
       console.error('Registration error caught:', err);
+      console.error("Registration error message:", err.message);
+      console.error("Full registration error object:", err);
       console.error("Detailed registration error:", err);
       
       // Log additional database-specific information
