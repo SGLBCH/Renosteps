@@ -415,7 +415,7 @@ function TaskCardContent({
                           <Input
                             value={editSubtaskTitle}
                             onChange={(e) => setEditSubtaskTitle(e.target.value)}
-                            className="text-sm h-7 flex-1"
+                            className="text-sm h-7 flex-1 subtask-input"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 handleSaveSubtaskEdit(subtask.id);
@@ -515,7 +515,7 @@ function TaskCardContent({
                       value={newSubtaskTitle}
                       onChange={(e) => setNewSubtaskTitle(e.target.value)}
                       placeholder="Enter subtask title"
-                      className="text-sm h-8 flex-1"
+                      className="text-sm h-8 flex-1 subtask-input"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           handleAddSubtask();
