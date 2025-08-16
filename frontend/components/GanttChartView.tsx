@@ -838,7 +838,17 @@ function GanttChartContent() {
                             {isTaskColumnCollapsed ? (
                               <div className="flex flex-col items-center justify-center h-full">
                                 <div className={`w-3 h-3 rounded-full ${getTaskBarColor(task.priority)} mb-1`}></div>
-                                <div className="text-xs text-muted-foreground writing-mode-vertical transform rotate-180 truncate max-h-12 overflow-hidden">
+                                <div 
+                                  className="text-xs text-muted-foreground text-center"
+                                  style={{
+                                    writingMode: 'vertical-rl',
+                                    textOrientation: 'mixed',
+                                    maxHeight: '80px',
+                                    overflow: 'hidden',
+                                    whiteSpace: 'nowrap',
+                                    textOverflow: 'ellipsis'
+                                  }}
+                                >
                                   {task.title}
                                 </div>
                               </div>
