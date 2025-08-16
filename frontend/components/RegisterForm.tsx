@@ -86,7 +86,7 @@ export function RegisterForm({ onToggleMode }: RegisterFormProps) {
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">
-              Must be at least 8 characters long
+              Must be at least 8 characters long with at least one letter and one number
             </p>
           </div>
 
