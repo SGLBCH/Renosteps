@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/use-toast';
 import { useProject } from '../contexts/ProjectContext';
 import { useProjectBudget } from '../hooks/useProjectBudget';
-import backend from '~backend/client';
+import { useBackend } from './AuthenticatedBackend';
 import type { BudgetExpense } from '~backend/budget/types';
 
 export function Budget() {
@@ -36,6 +36,7 @@ export function Budget() {
   });
   const [apiError, setApiError] = useState<string | null>(null);
   const { toast } = useToast();
+  const backend = useBackend();
 
   // Form state
   const [formData, setFormData] = useState({
