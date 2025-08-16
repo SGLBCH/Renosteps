@@ -42,6 +42,7 @@ function GanttChartContent() {
   const { tasks, loading, error, loadTasks } = useProjectTasks();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [offset, setOffset] = useState(0); // timeline offset relative to earliest task period
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isTaskColumnCollapsed, setIsTaskColumnCollapsed] = useState(false);
   const [dragState, setDragState] = useState<DragState>({
@@ -80,13 +81,34 @@ function GanttChartContent() {
     [tasks]
   );
 
+  // Find earliest task start date (if any)
+  const earliestTaskStart = useMemo(() => {
+    if (tasksWithDates.length === 0) return null;
+    return new Date(Math.min(...tasksWithDates.map(t => new Date(t.startDate as Date).getTime())));
+  }, [tasksWithDates]);
+
+  // Generate date headers based on view mode and tasks; when tasks exist, start from earliest - 1 block
   const generateDateHeaders = useMemo(() => {
     const dates: { date: Date; label: string; key: string }[] = [];
-    const startDate = new Date(currentDate);
-    
+    const hasTasks = !!earliestTaskStart;
+
     if (viewMode === 'day') {
       const daysToShow = isMobile ? 21 : 14;
-      startDate.setDate(startDate.getDate() - Math.floor(daysToShow / 2));
+
+      let startDate: Date;
+      if (hasTasks) {
+        // Start one day before earliest task start
+        startDate = new Date(earliestTaskStart!);
+        startDate.setDate(startDate.getDate() - 1);
+        // Apply offset in days
+        startDate.setDate(startDate.getDate() + offset);
+      } else {
+        // Fallback: center around current date if no tasks
+        startDate = new Date(currentDate);
+        // Show window starting from "center - halfWindow"
+        startDate.setDate(startDate.getDate() - Math.floor(daysToShow / 2));
+      }
+
       for (let i = 0; i < daysToShow; i++) {
         const date = new Date(startDate);
         date.setDate(date.getDate() + i);
@@ -100,30 +122,59 @@ function GanttChartContent() {
       }
     } else if (viewMode === 'week') {
       const weeksToShow = isMobile ? 12 : 8;
-      const startOfWeek = new Date(startDate);
-      startOfWeek.setDate(startDate.getDate() - startDate.getDay() - (weeksToShow * 7 / 2));
-      
+
+      let weekStart: Date;
+      if (hasTasks) {
+        // Start at the week before the earliest task's week
+        const e = new Date(earliestTaskStart!);
+        const startOfWeek = new Date(e);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday start
+        startOfWeek.setDate(startOfWeek.getDate() - 7); // one block before earliest week
+        // Apply offset in weeks
+        startOfWeek.setDate(startOfWeek.getDate() + offset * 7);
+        weekStart = startOfWeek;
+      } else {
+        // Fallback around current date: compute week containing currentDate, then back half window
+        const ref = new Date(currentDate);
+        const startOfWeek = new Date(ref);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        startOfWeek.setDate(startOfWeek.getDate() - Math.floor(weeksToShow / 2) * 7);
+        weekStart = startOfWeek;
+      }
+
       for (let i = 0; i < weeksToShow; i++) {
-        const weekStart = new Date(startOfWeek);
-        weekStart.setDate(weekStart.getDate() + (i * 7));
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
+        const wStart = new Date(weekStart);
+        wStart.setDate(wStart.getDate() + (i * 7));
+        const wEnd = new Date(wStart);
+        wEnd.setDate(wEnd.getDate() + 6);
         
         dates.push({
-          date: new Date(weekStart),
+          date: new Date(wStart),
           label: isMobile
-            ? `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-            : `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
-          key: `week-${weekStart.toISOString().split('T')[0]}`
+            ? `${wStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+            : `${wStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${wEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+          key: `week-${wStart.toISOString().split('T')[0]}`
         });
       }
     } else if (viewMode === 'month') {
       const monthsToShow = isMobile ? 9 : 6;
-      startDate.setMonth(startDate.getMonth() - Math.floor(monthsToShow / 2));
-      startDate.setDate(1);
-      
+
+      let monthStart: Date;
+      if (hasTasks) {
+        const e = new Date(earliestTaskStart!);
+        // First day of earliest month, then previous month for one empty block
+        monthStart = new Date(e.getFullYear(), e.getMonth() - 1, 1);
+        // Apply offset in months
+        monthStart = new Date(monthStart.getFullYear(), monthStart.getMonth() + offset, 1);
+      } else {
+        // Fallback around current date
+        monthStart = new Date(currentDate);
+        monthStart.setMonth(monthStart.getMonth() - Math.floor(monthsToShow / 2));
+        monthStart.setDate(1);
+      }
+
       for (let i = 0; i < monthsToShow; i++) {
-        const monthDate = new Date(startDate);
+        const monthDate = new Date(monthStart);
         monthDate.setMonth(monthDate.getMonth() + i);
         dates.push({
           date: new Date(monthDate),
@@ -136,7 +187,7 @@ function GanttChartContent() {
     }
     
     return dates;
-  }, [currentDate, viewMode, isMobile]);
+  }, [currentDate, viewMode, isMobile, earliestTaskStart, offset]);
 
   const getCurrentDateRange = useMemo(() => {
     if (generateDateHeaders.length === 0) return '';
@@ -152,34 +203,47 @@ function GanttChartContent() {
     }
   }, [generateDateHeaders, viewMode]);
 
-  // Re-center current date when view mode changes
+  // Reset to starting window when view mode or task set changes
   useEffect(() => {
+    setOffset(0);
     setCurrentDate(new Date());
-  }, [viewMode]);
+  }, [viewMode, earliestTaskStart?.getTime()]);
 
   const handlePrevious = useCallback(() => {
-    const newDate = new Date(currentDate);
-    if (viewMode === 'day') {
-      newDate.setDate(newDate.getDate() - 1);
-    } else if (viewMode === 'week') {
-      newDate.setDate(newDate.getDate() - 7);
-    } else if (viewMode === 'month') {
-      newDate.setMonth(newDate.getMonth() - 1);
+    if (earliestTaskStart) {
+      // Move window one block earlier
+      setOffset(prev => prev - 1);
+    } else {
+      // Fallback to previous behavior centered on current date
+      const newDate = new Date(currentDate);
+      if (viewMode === 'day') {
+        newDate.setDate(newDate.getDate() - 1);
+      } else if (viewMode === 'week') {
+        newDate.setDate(newDate.getDate() - 7);
+      } else if (viewMode === 'month') {
+        newDate.setMonth(newDate.getMonth() - 1);
+      }
+      setCurrentDate(newDate);
     }
-    setCurrentDate(newDate);
-  }, [currentDate, viewMode]);
+  }, [currentDate, viewMode, earliestTaskStart]);
 
   const handleNext = useCallback(() => {
-    const newDate = new Date(currentDate);
-    if (viewMode === 'day') {
-      newDate.setDate(newDate.getDate() + 1);
-    } else if (viewMode === 'week') {
-      newDate.setDate(newDate.getDate() + 7);
-    } else if (viewMode === 'month') {
-      newDate.setMonth(newDate.getMonth() + 1);
+    if (earliestTaskStart) {
+      // Move window one block later
+      setOffset(prev => prev + 1);
+    } else {
+      // Fallback to next behavior centered on current date
+      const newDate = new Date(currentDate);
+      if (viewMode === 'day') {
+        newDate.setDate(newDate.getDate() + 1);
+      } else if (viewMode === 'week') {
+        newDate.setDate(newDate.getDate() + 7);
+      } else if (viewMode === 'month') {
+        newDate.setMonth(newDate.getMonth() + 1);
+      }
+      setCurrentDate(newDate);
     }
-    setCurrentDate(newDate);
-  }, [currentDate, viewMode]);
+  }, [currentDate, viewMode, earliestTaskStart]);
 
   const handleZoomIn = useCallback(() => {
     if (viewMode === 'month') {
