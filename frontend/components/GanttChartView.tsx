@@ -830,20 +830,21 @@ function GanttChartContent() {
                         <div 
                           className={`grid hover:bg-accent/50 transition-colors ${isDraggingThis ? 'bg-accent/30' : ''}`} 
                           style={{ 
-                            gridTemplateColumns: `${taskColumnWidth} repeat(${generateDateHeaders.length}, minmax(80px, 1fr))` 
+                            gridTemplateColumns: `${taskColumnWidth} repeat(${generateDateHeaders.length}, minmax(80px, 1fr))`,
+                            minHeight: isMobile ? '48px' : '56px'
                           }}
                         >
                           {/* Task Info - Sticky Left Column */}
-                          <div className="p-3 border-r border-border bg-card sticky left-0 z-30 shadow-sm">
+                          <div className="p-2 border-r border-border bg-card sticky left-0 z-30 shadow-sm flex items-center">
                             {isTaskColumnCollapsed ? (
-                              <div className="flex flex-col items-center justify-center h-full">
+                              <div className="flex flex-col items-center justify-center h-full w-full">
                                 <div className={`w-3 h-3 rounded-full ${getTaskBarColor(task.priority)} mb-1`}></div>
                                 <div 
                                   className="text-xs text-muted-foreground text-center"
                                   style={{
                                     writingMode: 'vertical-rl',
                                     textOrientation: 'mixed',
-                                    maxHeight: '80px',
+                                    maxHeight: '40px',
                                     overflow: 'hidden',
                                     whiteSpace: 'nowrap',
                                     textOverflow: 'ellipsis'
@@ -853,19 +854,25 @@ function GanttChartContent() {
                                 </div>
                               </div>
                             ) : (
-                              <>
+                              <div className="w-full">
                                 <div className="font-medium text-sm truncate">{task.title}</div>
                                 <div className="text-xs text-muted-foreground capitalize truncate">{task.category}</div>
-                                <div className="text-xs text-muted-foreground mt-1">
+                                <div className="text-xs text-muted-foreground">
                                   {task.progress}% complete
                                 </div>
-                              </>
+                              </div>
                             )}
                           </div>
                           
                           {/* Timeline Grid */}
                           <div className="relative overflow-visible" style={{ gridColumn: `2 / ${generateDateHeaders.length + 2}` }}>
-                            <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${generateDateHeaders.length}, minmax(80px, 1fr))` }}>
+                            <div 
+                              className="grid" 
+                              style={{ 
+                                gridTemplateColumns: `repeat(${generateDateHeaders.length}, minmax(80px, 1fr))`,
+                                height: isMobile ? '48px' : '56px'
+                              }}
+                            >
                               {generateDateHeaders.map((_, index) => (
                                 <div key={index} className="border-r border-border last:border-r-0"></div>
                               ))}
@@ -874,10 +881,11 @@ function GanttChartContent() {
                             {/* Original Task Bar */}
                             {barPosition && (
                               <div
-                                className={`absolute top-1/2 transform -translate-y-1/2 h-8 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm ${isMobile ? 'cursor-default' : 'cursor-move'} select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity z-10`}
+                                className={`absolute top-1/2 transform -translate-y-1/2 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-sm ${isMobile ? 'cursor-default' : 'cursor-move'} select-none ${isDraggingThis ? 'opacity-50' : 'opacity-80 hover:opacity-100'} transition-opacity z-10`}
                                 style={{
                                   left: barPosition.left,
                                   width: barPosition.width,
+                                  height: isMobile ? '24px' : '28px',
                                   transform: isDraggingThis ? 'translateY(-50%) translateZ(0)' : 'translateY(-50%)',
                                 }}
                                 onPointerDown={!isMobile ? (e) => handlePointerStart(e, task) : undefined}
@@ -893,10 +901,11 @@ function GanttChartContent() {
                             {/* Drag Preview */}
                             {dragPreviewPosition && isDraggingThis && (
                               <div
-                                className="absolute top-1/2 transform -translate-y-1/2 h-8 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-lg border-2 border-primary z-20 pointer-events-none"
+                                className="absolute top-1/2 transform -translate-y-1/2 rounded-md flex items-center justify-center text-white text-xs font-medium shadow-lg border-2 border-primary z-20 pointer-events-none"
                                 style={{
                                   left: dragPreviewPosition.left,
                                   width: dragPreviewPosition.width,
+                                  height: isMobile ? '24px' : '28px',
                                   transform: 'translateY(-50%) translateZ(0)',
                                 }}
                               >
