@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Menu, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Menu, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useProject } from '../contexts/ProjectContext';
@@ -43,6 +43,7 @@ function GanttChartContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isTaskColumnCollapsed, setIsTaskColumnCollapsed] = useState(false);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     taskId: null,
@@ -578,6 +579,14 @@ function GanttChartContent() {
     };
   }, []);
 
+  // Calculate task column width based on collapse state
+  const taskColumnWidth = useMemo(() => {
+    if (isTaskColumnCollapsed) {
+      return isMobile ? '60px' : '80px';
+    }
+    return isMobile ? '200px' : '300px';
+  }, [isTaskColumnCollapsed, isMobile]);
+
   if (!currentProject) {
     return (
       <div className="space-y-6">
@@ -774,13 +783,24 @@ function GanttChartContent() {
               <div 
                 className="grid border-b border-border sticky top-0 bg-card z-20 shadow-sm" 
                 style={{ 
-                  gridTemplateColumns: isMobile 
-                    ? `200px repeat(${generateDateHeaders.length}, minmax(80px, 1fr))` 
-                    : `300px repeat(${generateDateHeaders.length}, minmax(100px, 1fr))` 
+                  gridTemplateColumns: `${taskColumnWidth} repeat(${generateDateHeaders.length}, minmax(80px, 1fr))` 
                 }}
               >
-                <div className="p-3 border-r border-border font-medium bg-card sticky left-0 z-30 shadow-sm">
-                  Task
+                <div className="p-3 border-r border-border font-medium bg-card sticky left-0 z-30 shadow-sm flex items-center justify-between">
+                  {!isTaskColumnCollapsed && <span>Task</span>}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsTaskColumnCollapsed(!isTaskColumnCollapsed)}
+                    className="h-6 w-6 ml-auto"
+                    title={isTaskColumnCollapsed ? "Expand task column" : "Collapse task column"}
+                  >
+                    {isTaskColumnCollapsed ? (
+                      <ChevronRight className="h-4 w-4" />
+                    ) : (
+                      <ChevronLeft className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
                 {generateDateHeaders.map((header, index) => (
                   <div 
@@ -810,18 +830,27 @@ function GanttChartContent() {
                         <div 
                           className={`grid hover:bg-accent/50 transition-colors ${isDraggingThis ? 'bg-accent/30' : ''}`} 
                           style={{ 
-                            gridTemplateColumns: isMobile 
-                              ? `200px repeat(${generateDateHeaders.length}, minmax(80px, 1fr))` 
-                              : `300px repeat(${generateDateHeaders.length}, minmax(100px, 1fr))` 
+                            gridTemplateColumns: `${taskColumnWidth} repeat(${generateDateHeaders.length}, minmax(80px, 1fr))` 
                           }}
                         >
                           {/* Task Info - Sticky Left Column */}
                           <div className="p-3 border-r border-border bg-card sticky left-0 z-30 shadow-sm">
-                            <div className="font-medium text-sm truncate">{task.title}</div>
-                            <div className="text-xs text-muted-foreground capitalize truncate">{task.category}</div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {task.progress}% complete
-                            </div>
+                            {isTaskColumnCollapsed ? (
+                              <div className="flex flex-col items-center justify-center h-full">
+                                <div className={`w-3 h-3 rounded-full ${getTaskBarColor(task.priority)} mb-1`}></div>
+                                <div className="text-xs text-muted-foreground writing-mode-vertical transform rotate-180 truncate max-h-12 overflow-hidden">
+                                  {task.title}
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="font-medium text-sm truncate">{task.title}</div>
+                                <div className="text-xs text-muted-foreground capitalize truncate">{task.category}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {task.progress}% complete
+                                </div>
+                              </>
+                            )}
                           </div>
                           
                           {/* Timeline Grid */}
