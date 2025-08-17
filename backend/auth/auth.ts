@@ -48,15 +48,7 @@ const auth = authHandler<AuthParams, AuthData>(
   }
 );
 
-// Configure the API gateway to use our auth handler and CORS
+// Configure the API gateway to use our auth handler
 export const gateway = new Gateway({
   authHandler: auth,
-  // CORS configuration
-  corsAllowOrigins: [
-    "https://www.renosteps.app",
-    "http://localhost:5173",
-    "http://localhost:3000",
-  ],
-  corsAllowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  corsAllowHeaders: ["Authorization", "Content-Type"],
 });
