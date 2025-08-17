@@ -19,12 +19,12 @@ const auth = authHandler<AuthParams, AuthData>(
       throw APIError.unauthenticated("Missing authorization header");
     }
 
-    // Extract token from "Bearer <token>" format
+    // Extract token from "Bearer &lt;token&gt;" format
     const authHeader = params.authorization;
     const parts = authHeader.split(' ');
     
     if (parts.length !== 2 || parts[0] !== 'Bearer') {
-      throw APIError.unauthenticated("Invalid authorization header format. Expected 'Bearer <token>'");
+      throw APIError.unauthenticated("Invalid authorization header format. Expected 'Bearer &lt;token&gt;'");
     }
 
     const token = parts[1];

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import backend from '~backend/client';
+import { backendBaseUrl } from '../config';
 
 interface User {
   id: string;
@@ -36,6 +37,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // Helper to get a backend client with optional base URL override.
+  function getClient() {
+    return backendBaseUrl ? backend.with({ baseURL: backendBaseUrl }) : backend;
+  }
+
   // Check for existing token on mount
   useEffect(() => {
     const verifyAndSetUser = async () => {
@@ -43,7 +49,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (savedToken) {
         setToken(savedToken);
         try {
-          const authenticatedBackend = backend.with({
+          const baseClient = getClient();
+          const authenticatedBackend = baseClient.with({
             auth: async () => ({
               authorization: `Bearer ${savedToken}`,
             }),
@@ -71,7 +78,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await backend.auth.login({ email, password });
+      const baseClient = getClient();
+      const response = await baseClient.auth.login({ email, password });
       
       setToken(response.token);
       setUser({
@@ -94,14 +102,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       let errorMessage = 'Login failed';
       if (error instanceof Error) {
-        if (error.message.includes('Invalid email or password')) {
+        const msg = error.message || '';
+        if (msg.includes('Invalid email or password')) {
           errorMessage = 'Invalid email or password';
-        } else if (error.message.includes('timeout')) {
+        } else if (msg.includes('timeout')) {
           errorMessage = 'Request timed out. Please try again.';
-        } else if (error.message.includes('network')) {
-          errorMessage = 'Network error. Please check your connection.';
+        } else if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network')) {
+          errorMessage = 'Could not reach the server. Please check your connection or backend URL.';
         } else {
-          errorMessage = error.message;
+          errorMessage = msg;
         }
       }
       
@@ -116,7 +125,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const register = async (email: string, password: string) => {
     try {
-      const response = await backend.auth.register({ email, password });
+      const baseClient = getClient();
+      const response = await baseClient.auth.register({ email, password });
       
       setToken(response.token);
       setUser({
@@ -139,18 +149,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       let errorMessage = 'Registration failed';
       if (error instanceof Error) {
-        if (error.message.includes('User with this email already exists')) {
+        const msg = error.message || '';
+        if (msg.includes('already exists')) {
           errorMessage = 'An account with this email already exists';
-        } else if (error.message.includes('Invalid email format')) {
+        } else if (msg.toLowerCase().includes('invalid email')) {
           errorMessage = 'Please enter a valid email address';
-        } else if (error.message.includes('Password must be at least 8 characters')) {
+        } else if (msg.includes('Password must be at least 8 characters')) {
           errorMessage = 'Password must be at least 8 characters long';
-        } else if (error.message.includes('timeout')) {
+        } else if (msg.includes('timeout')) {
           errorMessage = 'Request timed out. Please try again.';
-        } else if (error.message.includes('network')) {
-          errorMessage = 'Network error. Please check your connection.';
+        } else if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network')) {
+          errorMessage = 'Could not reach the server. Please check your connection or backend URL.';
         } else {
-          errorMessage = error.message;
+          errorMessage = msg;
         }
       }
       
