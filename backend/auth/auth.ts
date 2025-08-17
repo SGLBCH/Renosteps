@@ -19,12 +19,12 @@ const auth = authHandler<AuthParams, AuthData>(
       throw APIError.unauthenticated("Missing authorization header");
     }
 
-    // Extract token from "Bearer &lt;token&gt;" format
+    // Extract token from "Bearer <token>" format
     const authHeader = params.authorization;
-    const parts = authHeader.split(' ');
+    const parts = authHeader.split(" ");
     
-    if (parts.length !== 2 || parts[0] !== 'Bearer') {
-      throw APIError.unauthenticated("Invalid authorization header format. Expected 'Bearer &lt;token&gt;'");
+    if (parts.length !== 2 || parts[0] !== "Bearer") {
+      throw APIError.unauthenticated("Invalid authorization header format. Expected 'Bearer <token>'");
     }
 
     const token = parts[1];
@@ -42,11 +42,21 @@ const auth = authHandler<AuthParams, AuthData>(
       };
     } catch (error) {
       // Log the error for debugging but return generic message to client
-      console.error('JWT verification failed:', error);
+      console.error("JWT verification failed:", error);
       throw APIError.unauthenticated("Invalid or expired token");
     }
   }
 );
 
-// Configure the API gateway to use our auth handler
-export const gateway = new Gateway({ authHandler: auth });
+// Configure the API gateway to use our auth handler and CORS
+export const gateway = new Gateway({
+  authHandler: auth,
+  // CORS configuration
+  corsAllowOrigins: [
+    "https://www.renosteps.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+  ],
+  corsAllowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  corsAllowHeaders: ["Authorization", "Content-Type"],
+});
