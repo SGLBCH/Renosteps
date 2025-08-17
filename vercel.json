@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://renovation-task-manager-d2evcgk82vjt19ur26rg.lp.dev/$1"
+    }
+  ]
+}
