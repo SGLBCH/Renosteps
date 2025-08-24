@@ -34,14 +34,14 @@ export function getJWTSecret(): string {
     if (!secret) {
       // Use a default secret for development if not configured
       console.warn('JWT_SECRET not configured, using default development secret');
-      return 'development-secret-key-change-in-production';
+      return 'development-secret-key-change-in-production-12345678901234567890';
     }
     return secret;
   } catch (error) {
     console.error('Failed to get JWT secret:', error);
     // Use a default secret for development
     console.warn('Using default development JWT secret');
-    return 'development-secret-key-change-in-production';
+    return 'development-secret-key-change-in-production-12345678901234567890';
   }
 }
 

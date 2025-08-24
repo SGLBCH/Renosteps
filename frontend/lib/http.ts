@@ -49,7 +49,7 @@ class HttpClient {
   // Enhanced health check with multiple endpoints and detailed logging
   async isBackendHealthy(): Promise<boolean> {
     const now = Date.now();
-    const cacheTimeout = 30000; // 30 seconds
+    const cacheTimeout = 10000; // 10 seconds - shorter cache for better responsiveness
 
     // Return cached result if recent
     if (now - this.healthCheckCache.lastCheck < cacheTimeout) {
@@ -57,80 +57,24 @@ class HttpClient {
       return this.healthCheckCache.isHealthy;
     }
 
-    console.group('🏥 Comprehensive Backend Health Check');
+    console.group('🏥 Backend Health Check');
     console.log('Backend URL:', backendBaseUrl || 'default');
-    console.log('Current time:', new Date().toISOString());
 
     try {
-      // Try multiple health endpoints for better reliability
-      const healthChecks = [
-        { name: 'ping', endpoint: () => this.client.health.ping() },
-        { name: 'production', endpoint: () => this.client.health.productionCheck() }
-      ];
+      // Simple ping test with shorter timeout
+      const response = await Promise.race([
+        this.client.health.ping(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Health check timeout')), 5000)
+        )
+      ]);
 
-      let anySuccess = false;
-      
-      for (const check of healthChecks) {
-        try {
-          console.log(`Testing ${check.name} endpoint...`);
-          
-          const response = await Promise.race([
-            check.endpoint(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error(`${check.name} health check timeout`)), 8000)
-            )
-          ]);
-
-          console.log(`✅ ${check.name} health check passed:`, response);
-          anySuccess = true;
-          break; // If any check passes, we're good
-        } catch (error) {
-          console.log(`❌ ${check.name} health check failed:`, error);
-        }
-      }
-
-      if (anySuccess) {
-        console.log('✅ Backend is healthy');
-        this.healthCheckCache = { isHealthy: true, lastCheck: now };
-        console.groupEnd();
-        return true;
-      } else {
-        throw new Error('All health checks failed');
-      }
+      console.log('✅ Health check passed:', response);
+      this.healthCheckCache = { isHealthy: true, lastCheck: now };
+      console.groupEnd();
+      return true;
     } catch (error) {
-      console.log('❌ All backend health checks failed:', error);
-      
-      // Additional debugging for production
-      if (typeof window !== 'undefined' && window.location.hostname === 'renosteps.app') {
-        console.log('🔍 Production debugging info:');
-        console.log('- Current URL:', window.location.href);
-        console.log('- Backend URL:', backendBaseUrl);
-        console.log('- User Agent:', navigator.userAgent);
-        console.log('- Network status:', navigator.onLine ? 'online' : 'offline');
-        
-        // Test direct fetch to backend
-        try {
-          const directUrl = 'https://renovation-task-manager-d2evcgk82vjt19ur26rg.lp.dev/health/ping';
-          console.log('🧪 Testing direct fetch to:', directUrl);
-          
-          const directResponse = await fetch(directUrl, {
-            method: 'GET',
-            mode: 'cors',
-            headers: {
-              'Accept': 'application/json'
-            }
-          });
-          
-          console.log('🧪 Direct fetch result:', {
-            status: directResponse.status,
-            statusText: directResponse.statusText,
-            ok: directResponse.ok
-          });
-        } catch (directError) {
-          console.log('🧪 Direct fetch failed:', directError);
-        }
-      }
-      
+      console.log('❌ Health check failed:', error);
       this.healthCheckCache = { isHealthy: false, lastCheck: now };
       console.groupEnd();
       return false;
@@ -139,12 +83,6 @@ class HttpClient {
 
   // Centralized request wrapper with timeout, retry, and health checks
   async request<T>(operation: () => Promise<T>, operationName: string): Promise<T> {
-    // Check backend health first
-    const isHealthy = await this.isBackendHealthy();
-    if (!isHealthy) {
-      throw new Error(`Backend service is not available. Please ensure the backend is running.`);
-    }
-
     let lastError: Error | null = null;
     
     for (let attempt = 1; attempt <= this.config.retries!; attempt++) {
@@ -216,7 +154,7 @@ class HttpClient {
     const enhanced = error as HttpError;
     
     if (error.message.includes('Failed to fetch')) {
-      enhanced.message = `Network error during ${operationName}. Please check your connection and ensure the backend is running.`;
+      enhanced.message = `Network error during ${operationName}. Please check your connection.`;
     } else if (error.message.includes('timeout')) {
       enhanced.message = `${operationName} timed out. Please try again.`;
     } else if (!enhanced.message.includes(operationName)) {

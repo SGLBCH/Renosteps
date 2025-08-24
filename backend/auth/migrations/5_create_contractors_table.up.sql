@@ -1,3 +1,4 @@
+-- Create contractors table
 CREATE TABLE contractors (
   id BIGSERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -7,6 +8,10 @@ CREATE TABLE contractors (
   company TEXT,
   hourly_rate DOUBLE PRECISION,
   notes TEXT,
+  user_id BIGINT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Create index for user_id
+CREATE INDEX idx_contractors_user_id ON contractors(user_id);
