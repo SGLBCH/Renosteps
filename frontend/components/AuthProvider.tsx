@@ -31,12 +31,14 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Enhanced error analysis function
+// Enhanced error analysis function with more detailed registration error detection
 function analyzeConnectionError(error: any, operation: string): string {
   console.group(`🔍 Connection Error Analysis - ${operation}`);
   console.log('Raw error:', error);
   console.log('Error type:', typeof error);
   console.log('Error constructor:', error?.constructor?.name);
+  console.log('Error message:', error?.message);
+  console.log('Error stack:', error?.stack);
   console.log('Backend URL config:', backendBaseUrl);
   console.log('Current location:', window.location.href);
   console.log('User agent:', navigator.userAgent);
@@ -48,26 +50,79 @@ function analyzeConnectionError(error: any, operation: string): string {
     location: window.location.href,
     errorType: error?.constructor?.name || 'Unknown',
     message: error?.message || 'No message',
-    stack: error?.stack || 'No stack trace'
+    stack: error?.stack || 'No stack trace',
+    status: error?.status || error?.statusCode || 'No status',
+    response: error?.response || 'No response data'
   };
+
+  // Check for specific registration-related errors first
+  if (operation === 'registration') {
+    console.log('🔍 Analyzing registration-specific errors...');
+    
+    // Check if it's a validation error from the backend
+    if (error?.message?.includes('validation') || error?.message?.includes('invalid')) {
+      console.log('❌ VALIDATION ERROR: Registration data validation failed');
+      console.groupEnd();
+      return `VALIDATION_ERROR: ${error.message}. Please check your email and password format.`;
+    }
+    
+    // Check if it's a duplicate email error
+    if (error?.message?.includes('already exists') || error?.message?.includes('duplicate') || error?.message?.includes('unique')) {
+      console.log('❌ DUPLICATE ERROR: Email already registered');
+      console.groupEnd();
+      return `DUPLICATE_ERROR: An account with this email already exists. Please try logging in instead.`;
+    }
+    
+    // Check if it's a database connection error
+    if (error?.message?.includes('database') || error?.message?.includes('connection') || error?.message?.includes('ECONNREFUSED')) {
+      console.log('❌ DATABASE ERROR: Backend database connection failed');
+      console.groupEnd();
+      return `DATABASE_ERROR: Backend database is not accessible. The service may be starting up or experiencing issues.`;
+    }
+    
+    // Check if it's a JWT secret configuration error
+    if (error?.message?.includes('JWT') || error?.message?.includes('secret') || error?.message?.includes('token')) {
+      console.log('❌ JWT CONFIG ERROR: JWT secret not configured');
+      console.groupEnd();
+      return `JWT_CONFIG_ERROR: Authentication service is not properly configured. JWT secret may be missing.`;
+    }
+    
+    // Check if it's a backend service not running error
+    if (error?.message?.includes('ECONNREFUSED') || error?.message?.includes('ERR_CONNECTION_REFUSED')) {
+      console.log('❌ SERVICE ERROR: Backend service not running');
+      console.groupEnd();
+      return `SERVICE_ERROR: Backend service is not running. Please ensure the Encore backend is started with 'encore run'.`;
+    }
+  }
 
   // Network-level errors
   if (error instanceof TypeError) {
     if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
       console.log('❌ NETWORK ERROR: Failed to fetch - likely CORS or network connectivity issue');
       console.log('Possible causes:');
-      console.log('1. Backend server is not running');
+      console.log('1. Backend server is not running (try: encore run)');
       console.log('2. CORS configuration issue');
       console.log('3. Network connectivity problem');
       console.log('4. Incorrect backend URL');
       console.groupEnd();
-      return `NETWORK_ERROR: Cannot connect to backend server at ${backendBaseUrl || 'default URL'}. Check if backend is running and CORS is configured correctly.`;
+      return `NETWORK_ERROR: Cannot connect to backend server at ${backendBaseUrl || 'default URL'}. Check if backend is running with 'encore run'.`;
     }
     
     if (error.message.includes('NetworkError') || error.message.includes('network')) {
       console.log('❌ NETWORK ERROR: General network issue');
       console.groupEnd();
       return `NETWORK_ERROR: Network connectivity issue during ${operation}. Check your internet connection.`;
+    }
+    
+    if (error.message.includes('Load failed')) {
+      console.log('❌ LOAD ERROR: Resource loading failed');
+      console.log('This often indicates:');
+      console.log('1. Backend service is not running');
+      console.log('2. Backend compilation errors');
+      console.log('3. Database connection issues');
+      console.log('4. Missing environment variables or secrets');
+      console.groupEnd();
+      return `LOAD_ERROR: Backend service failed to load during ${operation}. Check if 'encore run' is running and check backend logs for errors.`;
     }
   }
 
@@ -93,7 +148,7 @@ function analyzeConnectionError(error: any, operation: string): string {
       case 500:
         console.log('Internal server error - backend issue');
         console.groupEnd();
-        return `HTTP_500: Backend server error during ${operation}. Check backend logs.`;
+        return `HTTP_500: Backend server error during ${operation}. Check backend logs for database or configuration issues.`;
       case 502:
       case 503:
       case 504:
@@ -136,9 +191,15 @@ function analyzeConnectionError(error: any, operation: string): string {
   // Generic error with detailed info
   console.log('❌ UNKNOWN ERROR: Unhandled error type');
   console.log('Full error details:', errorDetails);
+  console.log('🔧 Debugging suggestions:');
+  console.log('1. Check if backend is running: encore run');
+  console.log('2. Check backend logs for compilation errors');
+  console.log('3. Verify JWT_SECRET is set in Encore secrets');
+  console.log('4. Check database connection');
+  console.log('5. Verify CORS configuration');
   console.groupEnd();
   
-  return `UNKNOWN_ERROR: ${error.message || 'Unknown error'} during ${operation}. Check console for details.`;
+  return `UNKNOWN_ERROR: ${error.message || 'Unknown error'} during ${operation}. Check console for details and ensure backend is running with 'encore run'.`;
 }
 
 // Enhanced backend client factory
@@ -280,6 +341,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.group('📝 Registration Process Started');
       console.log('Email:', email);
       console.log('Backend URL:', backendBaseUrl);
+      console.log('Password length:', password.length);
+      
+      // Pre-flight validation
+      if (!email || !email.trim()) {
+        throw new Error('VALIDATION_ERROR: Email is required');
+      }
+      
+      if (!password || password.length < 8) {
+        throw new Error('VALIDATION_ERROR: Password must be at least 8 characters long');
+      }
       
       const baseClient = createBackendClient();
       console.log('✅ Backend client created');
@@ -287,15 +358,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('📡 Making registration request...');
       const startTime = performance.now();
       
-      // Add a timeout to the request
+      // Add a timeout to the request with more detailed error handling
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT: Registration request timed out after 30 seconds')), 30000)
+        setTimeout(() => reject(new Error('TIMEOUT: Registration request timed out after 30 seconds. Backend may not be running.')), 30000)
       );
       
-      const response = await Promise.race([
-        baseClient.auth.register({ email, password }),
-        timeoutPromise
-      ]);
+      let response;
+      try {
+        response = await Promise.race([
+          baseClient.auth.register({ email, password }),
+          timeoutPromise
+        ]);
+      } catch (requestError) {
+        console.log('❌ Registration request failed:', requestError);
+        
+        // Check if it's a network error that might indicate backend is not running
+        if (requestError instanceof TypeError && requestError.message.includes('Failed to fetch')) {
+          throw new Error('NETWORK_ERROR: Cannot connect to backend. Please ensure the backend is running with "encore run".');
+        }
+        
+        // Re-throw the original error for further analysis
+        throw requestError;
+      }
       
       const endTime = performance.now();
       console.log(`✅ Registration request completed in ${(endTime - startTime).toFixed(2)}ms`);
@@ -327,9 +411,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.group('❌ Registration Failed');
       console.error('Raw registration error:', error);
+      console.log('Error details for debugging:');
+      console.log('- Error type:', typeof error);
+      console.log('- Error constructor:', error?.constructor?.name);
+      console.log('- Error message:', error?.message);
+      console.log('- Error stack:', error?.stack);
       
       const errorMessage = analyzeConnectionError(error, 'registration');
       console.log('Final error message:', errorMessage);
+      console.log('🔧 Next steps to debug:');
+      console.log('1. Check if backend is running: encore run');
+      console.log('2. Check backend terminal for error messages');
+      console.log('3. Verify JWT_SECRET is configured in Encore secrets');
+      console.log('4. Check database connection');
       console.groupEnd();
       
       toast({
