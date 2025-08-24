@@ -10,7 +10,12 @@ export const backendBaseUrl = (() => {
     return '';
   }
   
-  // If we're in production, use the API proxy
+  // If we're in production on renosteps.app, use the direct Encore API URL
+  if (typeof window !== 'undefined' && window.location.hostname === 'renosteps.app') {
+    return 'https://renovation-task-manager-d2evcgk82vjt19ur26rg.lp.dev';
+  }
+  
+  // For any other production environment, use the API proxy
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
     return '/api';
   }
@@ -24,4 +29,4 @@ export const backendBaseUrl = (() => {
 // - When deploying the frontend to a different origin (e.g. https://renosteps.app)
 //   you MUST set backendBaseUrl to the publicly accessible Encore API URL
 //   and also allow that origin in the backend CORS configuration.
-// - In production, we use "/api" which gets proxied to the Encore backend via Vercel rewrites.
+// - In production, we use the direct Encore API URL to avoid proxy issues.

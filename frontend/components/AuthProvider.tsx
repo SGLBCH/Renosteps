@@ -37,9 +37,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Helper to get a backend client with optional base URL override.
+  // Helper to get a backend client with proper configuration
   function getClient() {
-    return backendBaseUrl ? backend.with({ baseURL: backendBaseUrl }) : backend;
+    console.log('Backend base URL:', backendBaseUrl);
+    
+    if (backendBaseUrl) {
+      return backend.with({ 
+        baseURL: backendBaseUrl,
+        // Add headers for CORS
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+    }
+    
+    return backend;
   }
 
   // Check for existing token on mount
@@ -78,8 +90,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (email: string, password: string) => {
     try {
+      console.log('Starting login process...');
       const baseClient = getClient();
+      console.log('Backend client configured, making login request...');
+      
       const response = await baseClient.auth.login({ email, password });
+      console.log('Login successful:', response);
       
       setToken(response.token);
       setUser({
@@ -103,12 +119,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       let errorMessage = 'Login failed';
       if (error instanceof Error) {
         const msg = error.message || '';
+        console.log('Error message:', msg);
+        
         if (msg.includes('Invalid email or password')) {
           errorMessage = 'Invalid email or password';
         } else if (msg.includes('timeout')) {
           errorMessage = 'Request timed out. Please try again.';
         } else if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('load failed')) {
           errorMessage = 'Could not connect to the server. Please check your internet connection and try again.';
+        } else if (msg.toLowerCase().includes('cors')) {
+          errorMessage = 'Server configuration error. Please contact support.';
         } else {
           errorMessage = msg;
         }
@@ -126,10 +146,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const register = async (email: string, password: string) => {
     try {
       console.log('Starting registration process...');
-      const baseClient = getClient();
-      console.log('Backend client configured, making request...');
+      console.log('Using backend URL:', backendBaseUrl);
       
-      const response = await baseClient.auth.register({ email, password });
+      const baseClient = getClient();
+      console.log('Backend client configured, making registration request...');
+      
+      // Add a timeout to the request
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 30000)
+      );
+      
+      const response = await Promise.race([
+        baseClient.auth.register({ email, password }),
+        timeoutPromise
+      ]);
+      
       console.log('Registration successful:', response);
       
       setToken(response.token);
@@ -162,12 +193,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           errorMessage = 'Please enter a valid email address';
         } else if (msg.includes('Password must be at least 8 characters')) {
           errorMessage = 'Password must be at least 8 characters long';
-        } else if (msg.includes('timeout')) {
+        } else if (msg.includes('timeout') || msg.includes('Request timeout')) {
           errorMessage = 'Request timed out. Please try again.';
         } else if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('load failed')) {
           errorMessage = 'Could not connect to the server. Please check your internet connection and try again.';
         } else if (msg.toLowerCase().includes('cors')) {
           errorMessage = 'Server configuration error. Please contact support.';
+        } else if (msg.toLowerCase().includes('not found') || msg.includes('404')) {
+          errorMessage = 'Registration service not available. Please try again later.';
         } else {
           errorMessage = msg;
         }
