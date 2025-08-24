@@ -107,8 +107,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           errorMessage = 'Invalid email or password';
         } else if (msg.includes('timeout')) {
           errorMessage = 'Request timed out. Please try again.';
-        } else if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network')) {
-          errorMessage = 'Could not reach the server. Please check your connection or backend URL.';
+        } else if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('load failed')) {
+          errorMessage = 'Could not connect to the server. Please check your internet connection and try again.';
         } else {
           errorMessage = msg;
         }
@@ -125,8 +125,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const register = async (email: string, password: string) => {
     try {
+      console.log('Starting registration process...');
       const baseClient = getClient();
+      console.log('Backend client configured, making request...');
+      
       const response = await baseClient.auth.register({ email, password });
+      console.log('Registration successful:', response);
       
       setToken(response.token);
       setUser({
@@ -150,6 +154,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       let errorMessage = 'Registration failed';
       if (error instanceof Error) {
         const msg = error.message || '';
+        console.log('Error message:', msg);
+        
         if (msg.includes('already exists')) {
           errorMessage = 'An account with this email already exists';
         } else if (msg.toLowerCase().includes('invalid email')) {
@@ -158,8 +164,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           errorMessage = 'Password must be at least 8 characters long';
         } else if (msg.includes('timeout')) {
           errorMessage = 'Request timed out. Please try again.';
-        } else if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network')) {
-          errorMessage = 'Could not reach the server. Please check your connection or backend URL.';
+        } else if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('load failed')) {
+          errorMessage = 'Could not connect to the server. Please check your internet connection and try again.';
+        } else if (msg.toLowerCase().includes('cors')) {
+          errorMessage = 'Server configuration error. Please contact support.';
         } else {
           errorMessage = msg;
         }

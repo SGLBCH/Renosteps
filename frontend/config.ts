@@ -2,7 +2,22 @@
 // Set this to your Encore backend's public URL, for example:
 // export const backendBaseUrl = "https://<your-app-id>.api.encore.dev";
 // For local development with Vite, you can leave it empty and Encore's dev proxy will be used.
-export const backendBaseUrl = "/api";
+
+// Check if we're in production and use the appropriate backend URL
+export const backendBaseUrl = (() => {
+  // If we're in development (localhost), use the proxy
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return '';
+  }
+  
+  // If we're in production, use the API proxy
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return '/api';
+  }
+  
+  // Fallback for SSR or other environments
+  return '/api';
+})();
 
 // Notes:
 // - If left empty, the auto-generated client will use its default base URL.
