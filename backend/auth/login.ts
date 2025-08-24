@@ -57,7 +57,7 @@ export const login = api<LoginRequest, AuthResponse>(
       console.log('Login successful for user:', user.id, user.email);
 
       // Generate JWT token
-      const token = generateToken(user.id, user.email);
+      const token = await generateToken(user.id, user.email);
 
       // Return success response
       return {

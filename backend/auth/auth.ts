@@ -34,7 +34,7 @@ const auth = authHandler<AuthParams, AuthData>(
 
     try {
       // Verify the JWT token and extract user info
-      const decoded = verifyToken(token);
+      const decoded = await verifyToken(token);
       
       return {
         userID: decoded.userId.toString(),

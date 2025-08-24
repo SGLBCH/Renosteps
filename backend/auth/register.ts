@@ -66,7 +66,7 @@ export const register = api<RegisterRequest, AuthResponse>(
       console.log('User created successfully:', newUser.id, newUser.email);
 
       // Generate JWT token
-      const token = generateToken(newUser.id, newUser.email);
+      const token = await generateToken(newUser.id, newUser.email);
 
       // Return success response
       return {
