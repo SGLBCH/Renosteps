@@ -1,5 +1,4 @@
 import { SQLDatabase } from 'encore.dev/storage/sqldb';
 
-export const contractorsDB = new SQLDatabase("contractors", {
-  migrations: "./migrations",
-});
+// Reference the existing prod database created in auth service
+export const contractorsDB = SQLDatabase.named("prod");

@@ -1,6 +1,6 @@
 import { SQLDatabase } from 'encore.dev/storage/sqldb';
 
-// Create the auth database with migrations
-export const authDB = new SQLDatabase("auth", {
+// Create the prod database with migrations - this is the primary database definition
+export const authDB = new SQLDatabase("prod", {
   migrations: "./migrations",
 });

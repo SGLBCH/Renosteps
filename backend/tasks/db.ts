@@ -1,8 +1,7 @@
 import { SQLDatabase } from 'encore.dev/storage/sqldb';
 
-export const tasksDB = new SQLDatabase("tasks", {
-  migrations: "./migrations",
-});
+// Reference the existing prod database created in auth service
+export const tasksDB = SQLDatabase.named("prod");
 
 // Helper function to ensure database connections are properly handled
 export async function withTimeout<T>(
