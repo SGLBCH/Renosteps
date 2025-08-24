@@ -18,25 +18,15 @@ export const backendBaseUrl = (() => {
   let selectedUrl = '';
   let reason = '';
   
-  // If we're in development (localhost), use the proxy
+  // If we're in development (localhost), use the Encore dev proxy with empty base URL.
   if (hostname === 'localhost') {
     selectedUrl = '';
     reason = 'Development mode - using Encore dev proxy';
-  }
-  // If we're in production on renosteps.app, use the direct Encore API URL
-  else if (hostname === 'renosteps.app') {
-    selectedUrl = 'https://renovation-task-manager-d2evcgk82vjt19ur26rg.lp.dev';
-    reason = 'Production on renosteps.app - using direct Encore API';
-  }
-  // For any other production environment, use the API proxy
-  else if (hostname !== 'localhost') {
+  } else {
+    // For production (including renosteps.app and any subdomain), use the same-origin API proxy.
+    // This avoids cross-origin requests and CORS issues by routing through /api (see vercel.json rewrites).
     selectedUrl = '/api';
-    reason = 'Other production environment - using API proxy';
-  }
-  // Fallback for SSR or other environments
-  else {
-    selectedUrl = '/api';
-    reason = 'Fallback for SSR or unknown environment';
+    reason = 'Production - using same-origin /api proxy to Encore';
   }
   
   console.log('Selected backend URL:', selectedUrl || 'default (empty)');
@@ -50,12 +40,14 @@ export const backendBaseUrl = (() => {
 export function testBackendConnection() {
   console.group('🔍 Backend Connection Test');
   console.log('Configured backend URL:', backendBaseUrl);
-  console.log('Current environment:', {
-    hostname: window.location.hostname,
-    protocol: window.location.protocol,
-    port: window.location.port,
-    origin: window.location.origin
-  });
+  if (typeof window !== 'undefined') {
+    console.log('Current environment:', {
+      hostname: window.location.hostname,
+      protocol: window.location.protocol,
+      port: window.location.port,
+      origin: window.location.origin
+    });
+  }
   
   // Test multiple endpoints to verify backend availability
   const testEndpoints = [
@@ -75,23 +67,25 @@ export function testBackendConnection() {
         'Content-Type': 'application/json'
       }
     })
-    .then(response => {
+    .then(async response => {
       console.log(`✅ ${endpoint} connection test result:`, {
         status: response.status,
         statusText: response.statusText,
         url: response.url,
         headers: Object.fromEntries(response.headers.entries())
       });
-      return response.json();
-    })
-    .then(data => {
-      console.log(`📊 ${endpoint} response data:`, data);
+      try {
+        const data = await response.json();
+        console.log(`📊 ${endpoint} response data:`, data);
+      } catch (e) {
+        console.log(`ℹ️ ${endpoint} response had no JSON body`);
+      }
     })
     .catch(error => {
       console.log(`❌ ${endpoint} connection test failed:`, {
-        error: error.message,
-        type: error.name,
-        stack: error.stack
+        error: (error as Error).message,
+        type: (error as any).name,
+        stack: (error as any).stack
       });
     });
   });
@@ -100,7 +94,7 @@ export function testBackendConnection() {
 }
 
 // Auto-run connection test in production for debugging
-if (typeof window !== 'undefined' && window.location.hostname === 'renosteps.app') {
+if (typeof window !== 'undefined' && window.location.hostname.endsWith('renosteps.app')) {
   console.log('🚀 Production environment detected - running connection test');
   setTimeout(testBackendConnection, 1000);
 }
@@ -108,9 +102,8 @@ if (typeof window !== 'undefined' && window.location.hostname === 'renosteps.app
 // Notes:
 // - If left empty, the auto-generated client will use its default base URL.
 // - When deploying the frontend to a different origin (e.g. https://renosteps.app)
-//   you MUST set backendBaseUrl to the publicly accessible Encore API URL
-//   and also allow that origin in the backend CORS configuration.
-// - In production, we use the direct Encore API URL to avoid proxy issues.
+//   we now use the same-origin proxy (/api) which Vercel rewrites to the Encore API.
+//   This avoids cross-origin issues and ensures Authorization headers pass through.
+// - vercel.json handles rewriting /api/* to the Encore public URL and sets CORS headers if needed.
 // - Enhanced with detailed logging for debugging connection issues.
-// - The JWT secret is now handled gracefully with a default for development.
-// - Auto-runs connection test in production for immediate debugging feedback.
+// - The JWT secret is handled in the backend via Encore secrets; frontend does not need it.
