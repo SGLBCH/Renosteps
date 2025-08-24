@@ -233,6 +233,35 @@ function createBackendClient() {
   return client;
 }
 
+// Check if backend is available
+async function checkBackendHealth(): Promise<boolean> {
+  try {
+    console.log('🏥 Checking backend health...');
+    const baseClient = createBackendClient();
+    
+    // Try to make a simple request to check if backend is available
+    // We'll try to call the auth endpoint with invalid data to see if we get a proper error response
+    await baseClient.auth.login({ email: 'health-check', password: 'health-check' });
+    return true;
+  } catch (error) {
+    // If we get a proper API error (like validation error), the backend is running
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.log('✅ Backend is responding (got API error as expected)');
+      return true;
+    }
+    
+    // If we get network errors, the backend is not available
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      console.log('❌ Backend health check failed - service not available');
+      return false;
+    }
+    
+    // Other errors might indicate the backend is running but has issues
+    console.log('⚠️ Backend health check uncertain:', error);
+    return true; // Assume it's available and let the actual auth calls handle errors
+  }
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -247,6 +276,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setToken(savedToken);
         try {
           console.log('🔍 Verifying existing token...');
+          
+          // First check if backend is available
+          const isBackendAvailable = await checkBackendHealth();
+          if (!isBackendAvailable) {
+            console.log('❌ Backend not available - clearing token');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
+            setToken(null);
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+          
           const baseClient = createBackendClient();
           const authenticatedBackend = baseClient.with({
             auth: async () => ({
@@ -265,11 +307,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const errorMessage = analyzeConnectionError(error, 'token_verification');
           console.log('Analyzed error:', errorMessage);
           
-          // Clear invalid token
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('authUser');
-          setToken(null);
-          setUser(null);
+          // Only clear token if it's actually invalid, not if backend is down
+          if (errorMessage.includes('AUTH_ERROR') || errorMessage.includes('HTTP_401')) {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
+            setToken(null);
+            setUser(null);
+          } else {
+            // Backend might be down, keep token for when it comes back up
+            console.log('⚠️ Keeping token - backend may be temporarily unavailable');
+          }
         }
       }
       setLoading(false);
@@ -283,6 +330,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.group('🔐 Login Process Started');
       console.log('Email:', email);
       console.log('Backend URL:', backendBaseUrl);
+      
+      // Check backend availability first
+      const isBackendAvailable = await checkBackendHealth();
+      if (!isBackendAvailable) {
+        throw new Error('NETWORK_ERROR: Backend service is not available. Please ensure the backend is running with "encore run".');
+      }
       
       const baseClient = createBackendClient();
       console.log('✅ Backend client created');
@@ -350,6 +403,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (!password || password.length < 8) {
         throw new Error('VALIDATION_ERROR: Password must be at least 8 characters long');
+      }
+      
+      // Check backend availability first
+      const isBackendAvailable = await checkBackendHealth();
+      if (!isBackendAvailable) {
+        throw new Error('NETWORK_ERROR: Backend service is not available. Please ensure the backend is running with "encore run".');
       }
       
       const baseClient = createBackendClient();

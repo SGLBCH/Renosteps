@@ -27,7 +27,7 @@ function analyzeBudgetError(error: any, operation: string): string {
   if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
     console.log('❌ NETWORK ERROR: Cannot reach backend for budget operations');
     console.groupEnd();
-    return `NETWORK_ERROR: Cannot connect to backend for ${operation}. Check if backend is running.`;
+    return `Backend service is not available. Please ensure the backend is running.`;
   }
 
   // HTTP status errors
@@ -35,26 +35,26 @@ function analyzeBudgetError(error: any, operation: string): string {
     const status = error.status || error.statusCode;
     console.log(`❌ HTTP ERROR: Status ${status} during ${operation}`);
     console.groupEnd();
-    return `HTTP_${status}: Server error during ${operation}. Check backend logs.`;
+    return `Server error (${status}) during ${operation}. Please try again.`;
   }
 
   // Timeout errors
   if (error.message.includes('timeout')) {
     console.log('❌ TIMEOUT ERROR: Budget operation timed out');
     console.groupEnd();
-    return `TIMEOUT_ERROR: ${operation} request timed out. Backend may be slow.`;
+    return `Request timed out during ${operation}. Please try again.`;
   }
 
   // Authentication errors
   if (error.message.includes('Unauthorized') || error.message.includes('401')) {
     console.log('❌ AUTH ERROR: Unauthorized budget operation');
     console.groupEnd();
-    return `AUTH_ERROR: Authentication required for ${operation}. Please log in again.`;
+    return `Authentication required for ${operation}. Please log in again.`;
   }
 
   console.log('❌ UNKNOWN ERROR during budget operation');
   console.groupEnd();
-  return `UNKNOWN_ERROR: ${error.message || 'Unknown error'} during ${operation}`;
+  return `An error occurred during ${operation}. Please try again.`;
 }
 
 export function useProjectBudget() {
@@ -93,7 +93,7 @@ export function useProjectBudget() {
       
       // Add timeout to the frontend request
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT: Budget loading request timed out after 15 seconds')), 15000)
+        setTimeout(() => reject(new Error('TIMEOUT: Budget loading request timed out after 10 seconds')), 10000)
       );
       
       console.log('📡 Making budget request...');
@@ -133,8 +133,10 @@ export function useProjectBudget() {
       const errorMessage = analyzeBudgetError(err, 'budget_loading');
       console.log('Analyzed error:', errorMessage);
       
-      // Don't show error state immediately, try to retry a few times
-      if (retryCount < 2) {
+      // Don't show error state immediately for network errors, try to retry a few times
+      if (retryCount < 2 && (
+        err instanceof TypeError && err.message.includes('Failed to fetch')
+      )) {
         console.log(`🔄 Retrying budget load (attempt ${retryCount + 1}/3)`);
         setRetryCount(prev => prev + 1);
         console.groupEnd();
@@ -147,7 +149,7 @@ export function useProjectBudget() {
         return;
       }
       
-      console.log('❌ Max retries reached - showing error state');
+      console.log('❌ Max retries reached or non-network error - showing error state');
       console.groupEnd();
       setError(errorMessage);
     } finally {

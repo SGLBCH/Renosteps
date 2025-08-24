@@ -36,6 +36,7 @@ export class Client {
     public readonly auth: auth.ServiceClient
     public readonly budget: budget.ServiceClient
     public readonly contractors: contractors.ServiceClient
+    public readonly health: health.ServiceClient
     public readonly inspiration: inspiration.ServiceClient
     public readonly projects: projects.ServiceClient
     public readonly tasks: tasks.ServiceClient
@@ -56,6 +57,7 @@ export class Client {
         this.auth = new auth.ServiceClient(base)
         this.budget = new budget.ServiceClient(base)
         this.contractors = new contractors.ServiceClient(base)
+        this.health = new health.ServiceClient(base)
         this.inspiration = new inspiration.ServiceClient(base)
         this.projects = new projects.ServiceClient(base)
         this.tasks = new tasks.ServiceClient(base)
@@ -298,6 +300,32 @@ export namespace contractors {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI(`/contractors/${encodeURIComponent(params.id)}`, {method: "PUT", body: JSON.stringify(body)})
             return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_contractors_update_update>
+        }
+    }
+}
+
+/**
+ * Import the endpoint handlers to derive the types for the client.
+ */
+import { ping as api_health_ping_ping } from "~backend/health/ping";
+
+export namespace health {
+
+    export class ServiceClient {
+        private baseClient: BaseClient
+
+        constructor(baseClient: BaseClient) {
+            this.baseClient = baseClient
+            this.ping = this.ping.bind(this)
+        }
+
+        /**
+         * Simple health check endpoint that returns 200 if the service is running
+         */
+        public async ping(): Promise<ResponseType<typeof api_health_ping_ping>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/health/ping`, {method: "GET", body: undefined})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_health_ping_ping>
         }
     }
 }

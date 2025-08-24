@@ -55,7 +55,7 @@ function analyzeProjectError(error: any, operation: string): string {
   if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
     console.log('❌ NETWORK ERROR: Cannot reach backend for project operations');
     console.groupEnd();
-    return `NETWORK_ERROR: Cannot connect to backend for ${operation}. Check if backend is running.`;
+    return `Backend service is not available. Please ensure the backend is running.`;
   }
 
   // HTTP status errors
@@ -63,26 +63,54 @@ function analyzeProjectError(error: any, operation: string): string {
     const status = error.status || error.statusCode;
     console.log(`❌ HTTP ERROR: Status ${status} during ${operation}`);
     console.groupEnd();
-    return `HTTP_${status}: Server error during ${operation}. Check backend logs.`;
+    return `Server error (${status}) during ${operation}. Please try again.`;
   }
 
   // Timeout errors
   if (error.message.includes('timeout')) {
     console.log('❌ TIMEOUT ERROR: Project operation timed out');
     console.groupEnd();
-    return `TIMEOUT_ERROR: ${operation} request timed out. Backend may be slow.`;
+    return `Request timed out during ${operation}. Please try again.`;
   }
 
   // Authentication errors
   if (error.message.includes('Unauthorized') || error.message.includes('401')) {
     console.log('❌ AUTH ERROR: Unauthorized project operation');
     console.groupEnd();
-    return `AUTH_ERROR: Authentication required for ${operation}. Please log in again.`;
+    return `Authentication required for ${operation}. Please log in again.`;
   }
 
   console.log('❌ UNKNOWN ERROR during project operation');
   console.groupEnd();
-  return `UNKNOWN_ERROR: ${error.message || 'Unknown error'} during ${operation}`;
+  return `An error occurred during ${operation}. Please try again.`;
+}
+
+// Check if backend is available for projects
+async function checkProjectBackendHealth(backend: any): Promise<boolean> {
+  try {
+    console.log('🏥 Checking project backend health...');
+    
+    // Try to make a simple request to check if backend is available
+    await backend.projects.list();
+    console.log('✅ Project backend is responding');
+    return true;
+  } catch (error) {
+    // If we get a proper API error (like auth error), the backend is running
+    if (error && typeof error === 'object' && 'message' in error && !error.message.includes('Failed to fetch')) {
+      console.log('✅ Project backend is responding (got API error as expected)');
+      return true;
+    }
+    
+    // If we get network errors, the backend is not available
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      console.log('❌ Project backend health check failed - service not available');
+      return false;
+    }
+    
+    // Other errors might indicate the backend is running but has issues
+    console.log('⚠️ Project backend health check uncertain:', error);
+    return true; // Assume it's available and let the actual calls handle errors
+  }
 }
 
 interface ProjectProviderProps {
@@ -103,6 +131,17 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
         
         console.group('📁 Loading Projects');
         console.log('Starting project load...');
+        
+        // Check if backend is available first
+        const isBackendAvailable = await checkProjectBackendHealth(backend);
+        if (!isBackendAvailable) {
+          console.log('❌ Backend not available for projects - using empty state');
+          setProjects([]);
+          setCurrentProjectState(null);
+          localStorage.removeItem('currentProjectId');
+          console.groupEnd();
+          return;
+        }
         
         const startTime = performance.now();
         const response = await backend.projects.list();
