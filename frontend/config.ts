@@ -91,3 +91,4 @@ export function testBackendConnection() {
 //   and also allow that origin in the backend CORS configuration.
 // - In production, we use the direct Encore API URL to avoid proxy issues.
 // - Enhanced with detailed logging for debugging connection issues.
+// - The JWT secret is now handled gracefully with a default for development.

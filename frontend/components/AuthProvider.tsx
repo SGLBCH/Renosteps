@@ -105,7 +105,7 @@ function analyzeConnectionError(error: any, operation: string): string {
       console.log('3. Network connectivity problem');
       console.log('4. Incorrect backend URL');
       console.groupEnd();
-      return `NETWORK_ERROR: Cannot connect to backend server at ${backendBaseUrl || 'default URL'}. Check if backend is running with 'encore run'.`;
+      return `NETWORK_ERROR: Cannot connect to backend server. Please ensure the backend is running with 'encore run' and check your network connection.`;
     }
     
     if (error.message.includes('NetworkError') || error.message.includes('network')) {
@@ -122,7 +122,7 @@ function analyzeConnectionError(error: any, operation: string): string {
       console.log('3. Database connection issues');
       console.log('4. Missing environment variables or secrets');
       console.groupEnd();
-      return `LOAD_ERROR: Backend service failed to load during ${operation}. Check if 'encore run' is running and check backend logs for errors.`;
+      return `LOAD_ERROR: Backend service failed to load. Please ensure 'encore run' is running and check the backend logs for any compilation or startup errors.`;
     }
   }
 
@@ -144,7 +144,7 @@ function analyzeConnectionError(error: any, operation: string): string {
       case 404:
         console.log('Endpoint not found - check API URL and route');
         console.groupEnd();
-        return `HTTP_404: API endpoint not found. Check if backend route exists: ${backendBaseUrl}/auth/${operation}`;
+        return `HTTP_404: API endpoint not found. Check if backend route exists and the service is running properly.`;
       case 500:
         console.log('Internal server error - backend issue');
         console.groupEnd();
@@ -194,12 +194,12 @@ function analyzeConnectionError(error: any, operation: string): string {
   console.log('🔧 Debugging suggestions:');
   console.log('1. Check if backend is running: encore run');
   console.log('2. Check backend logs for compilation errors');
-  console.log('3. Verify JWT_SECRET is set in Encore secrets');
+  console.log('3. Verify JWT_SECRET is set in Encore secrets (or using default for development)');
   console.log('4. Check database connection');
   console.log('5. Verify CORS configuration');
   console.groupEnd();
   
-  return `UNKNOWN_ERROR: ${error.message || 'Unknown error'} during ${operation}. Check console for details and ensure backend is running with 'encore run'.`;
+  return `UNKNOWN_ERROR: ${error.message || 'Unknown error'} during ${operation}. Please ensure the backend is running with 'encore run' and check the console for details.`;
 }
 
 // Enhanced backend client factory
@@ -422,7 +422,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('🔧 Next steps to debug:');
       console.log('1. Check if backend is running: encore run');
       console.log('2. Check backend terminal for error messages');
-      console.log('3. Verify JWT_SECRET is configured in Encore secrets');
+      console.log('3. Verify JWT_SECRET is configured in Encore secrets (or using default for development)');
       console.log('4. Check database connection');
       console.groupEnd();
       
