@@ -48,7 +48,8 @@ const auth = authHandler<AuthParams, AuthData>(
   }
 );
 
-// Configure the API gateway to use our auth handler
+// Configure the API gateway with auth handler only
+// Note: CORS is handled automatically by Encore.ts for exposed endpoints
 export const gateway = new Gateway({
   authHandler: auth,
 });

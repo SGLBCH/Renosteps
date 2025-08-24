@@ -1,48 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useProject } from '../contexts/ProjectContext';
 import { useBackend } from '../components/AuthenticatedBackend';
+import { http } from '../lib/http';
 import type { Task } from '../components/TaskCardsView';
-
-// Enhanced error analysis for task operations
-function analyzeTaskError(error: any, operation: string): string {
-  console.group(`🔍 Task Error Analysis - ${operation}`);
-  console.log('Raw error:', error);
-  console.log('Error type:', typeof error);
-  console.log('Error constructor:', error?.constructor?.name);
-  
-  // Network-level errors
-  if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-    console.log('❌ NETWORK ERROR: Cannot reach backend for task operations');
-    console.groupEnd();
-    return `Backend service is not available. Please ensure the backend is running.`;
-  }
-
-  // HTTP status errors
-  if (error.status || error.statusCode) {
-    const status = error.status || error.statusCode;
-    console.log(`❌ HTTP ERROR: Status ${status} during ${operation}`);
-    console.groupEnd();
-    return `Server error (${status}) during ${operation}. Please try again.`;
-  }
-
-  // Timeout errors
-  if (error.message.includes('timeout')) {
-    console.log('❌ TIMEOUT ERROR: Task operation timed out');
-    console.groupEnd();
-    return `Request timed out during ${operation}. Please try again.`;
-  }
-
-  // Authentication errors
-  if (error.message.includes('Unauthorized') || error.message.includes('401')) {
-    console.log('❌ AUTH ERROR: Unauthorized task operation');
-    console.groupEnd();
-    return `Authentication required for ${operation}. Please log in again.`;
-  }
-
-  console.log('❌ UNKNOWN ERROR during task operation');
-  console.groupEnd();
-  return `An error occurred during ${operation}. Please try again.`;
-}
 
 export function useProjectTasks() {
   const { currentProject, loading: projectLoading } = useProject();
@@ -78,22 +38,13 @@ export function useProjectTasks() {
       console.log('Project name:', currentProject.name);
       console.log('Retry count:', retryCount);
       
-      // Add timeout to the frontend request as well
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT: Task loading request timed out after 10 seconds')), 10000)
+      // Use the centralized HTTP client with built-in retry and timeout
+      const response = await http.request(
+        () => backend.tasks.list({ projectId: String(currentProject.id) }),
+        'task loading'
       );
       
-      console.log('📡 Making tasks request...');
-      const startTime = performance.now();
-      
-      // Pass the project ID to filter tasks by project
-      const response = await Promise.race([
-        backend.tasks.list({ projectId: String(currentProject.id) }),
-        timeoutPromise
-      ]) as { tasks: Task[] };
-      
-      const endTime = performance.now();
-      console.log(`✅ Tasks loaded in ${(endTime - startTime).toFixed(2)}ms`);
+      console.log('✅ Tasks loaded successfully');
       console.log('Tasks count:', response.tasks?.length || 0);
       console.groupEnd();
       
@@ -103,13 +54,11 @@ export function useProjectTasks() {
       console.group('❌ Task Loading Failed');
       console.error('Raw task loading error:', error);
       
-      const errorMessage = analyzeTaskError(error, 'task_loading');
-      console.log('Analyzed error:', errorMessage);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load tasks';
+      console.log('Error message:', errorMessage);
       
       // Don't show error state immediately for network errors, try to retry a few times
-      if (retryCount < 2 && (
-        error instanceof TypeError && error.message.includes('Failed to fetch')
-      )) {
+      if (retryCount < 2 && errorMessage.includes('not available')) {
         console.log(`🔄 Retrying task load (attempt ${retryCount + 1}/3)`);
         setRetryCount(prev => prev + 1);
         console.groupEnd();

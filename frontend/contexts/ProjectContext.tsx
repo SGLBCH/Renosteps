@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useBackend } from '../components/AuthenticatedBackend';
+import { http } from '../lib/http';
 import type { Project as BackendProject } from '~backend/projects/types';
 
 export interface Project {
@@ -44,75 +45,6 @@ function convertBackendProject(backendProject: BackendProject): Project {
   };
 }
 
-// Enhanced error analysis for project operations
-function analyzeProjectError(error: any, operation: string): string {
-  console.group(`🔍 Project Error Analysis - ${operation}`);
-  console.log('Raw error:', error);
-  console.log('Error type:', typeof error);
-  console.log('Error constructor:', error?.constructor?.name);
-  
-  // Network-level errors
-  if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-    console.log('❌ NETWORK ERROR: Cannot reach backend for project operations');
-    console.groupEnd();
-    return `Backend service is not available. Please ensure the backend is running.`;
-  }
-
-  // HTTP status errors
-  if (error.status || error.statusCode) {
-    const status = error.status || error.statusCode;
-    console.log(`❌ HTTP ERROR: Status ${status} during ${operation}`);
-    console.groupEnd();
-    return `Server error (${status}) during ${operation}. Please try again.`;
-  }
-
-  // Timeout errors
-  if (error.message.includes('timeout')) {
-    console.log('❌ TIMEOUT ERROR: Project operation timed out');
-    console.groupEnd();
-    return `Request timed out during ${operation}. Please try again.`;
-  }
-
-  // Authentication errors
-  if (error.message.includes('Unauthorized') || error.message.includes('401')) {
-    console.log('❌ AUTH ERROR: Unauthorized project operation');
-    console.groupEnd();
-    return `Authentication required for ${operation}. Please log in again.`;
-  }
-
-  console.log('❌ UNKNOWN ERROR during project operation');
-  console.groupEnd();
-  return `An error occurred during ${operation}. Please try again.`;
-}
-
-// Check if backend is available for projects
-async function checkProjectBackendHealth(backend: any): Promise<boolean> {
-  try {
-    console.log('🏥 Checking project backend health...');
-    
-    // Try to make a simple request to check if backend is available
-    await backend.projects.list();
-    console.log('✅ Project backend is responding');
-    return true;
-  } catch (error) {
-    // If we get a proper API error (like auth error), the backend is running
-    if (error && typeof error === 'object' && 'message' in error && !error.message.includes('Failed to fetch')) {
-      console.log('✅ Project backend is responding (got API error as expected)');
-      return true;
-    }
-    
-    // If we get network errors, the backend is not available
-    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-      console.log('❌ Project backend health check failed - service not available');
-      return false;
-    }
-    
-    // Other errors might indicate the backend is running but has issues
-    console.log('⚠️ Project backend health check uncertain:', error);
-    return true; // Assume it's available and let the actual calls handle errors
-  }
-}
-
 interface ProjectProviderProps {
   children: ReactNode;
 }
@@ -132,8 +64,8 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
         console.group('📁 Loading Projects');
         console.log('Starting project load...');
         
-        // Check if backend is available first
-        const isBackendAvailable = await checkProjectBackendHealth(backend);
+        // Check if backend is available first using the centralized health check
+        const isBackendAvailable = await http.isBackendHealthy();
         if (!isBackendAvailable) {
           console.log('❌ Backend not available for projects - using empty state');
           setProjects([]);
@@ -143,11 +75,13 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
           return;
         }
         
-        const startTime = performance.now();
-        const response = await backend.projects.list();
-        const endTime = performance.now();
+        // Use the centralized HTTP client with built-in retry and timeout
+        const response = await http.request(
+          () => backend.projects.list(),
+          'project loading'
+        );
         
-        console.log(`✅ Projects loaded in ${(endTime - startTime).toFixed(2)}ms`);
+        console.log('✅ Projects loaded successfully');
         console.log('Projects count:', response.projects?.length || 0);
         
         const convertedProjects = response.projects.map(convertBackendProject);
@@ -187,8 +121,8 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
         console.group('❌ Project Loading Failed');
         console.error('Raw project loading error:', error);
         
-        const errorMessage = analyzeProjectError(error, 'project_loading');
-        console.log('Analyzed error:', errorMessage);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load projects';
+        console.log('Error message:', errorMessage);
         console.groupEnd();
         
         // On error, still try to set loading to false and clear current project
