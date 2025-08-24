@@ -44,6 +44,47 @@ function convertBackendProject(backendProject: BackendProject): Project {
   };
 }
 
+// Enhanced error analysis for project operations
+function analyzeProjectError(error: any, operation: string): string {
+  console.group(`🔍 Project Error Analysis - ${operation}`);
+  console.log('Raw error:', error);
+  console.log('Error type:', typeof error);
+  console.log('Error constructor:', error?.constructor?.name);
+  
+  // Network-level errors
+  if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+    console.log('❌ NETWORK ERROR: Cannot reach backend for project operations');
+    console.groupEnd();
+    return `NETWORK_ERROR: Cannot connect to backend for ${operation}. Check if backend is running.`;
+  }
+
+  // HTTP status errors
+  if (error.status || error.statusCode) {
+    const status = error.status || error.statusCode;
+    console.log(`❌ HTTP ERROR: Status ${status} during ${operation}`);
+    console.groupEnd();
+    return `HTTP_${status}: Server error during ${operation}. Check backend logs.`;
+  }
+
+  // Timeout errors
+  if (error.message.includes('timeout')) {
+    console.log('❌ TIMEOUT ERROR: Project operation timed out');
+    console.groupEnd();
+    return `TIMEOUT_ERROR: ${operation} request timed out. Backend may be slow.`;
+  }
+
+  // Authentication errors
+  if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+    console.log('❌ AUTH ERROR: Unauthorized project operation');
+    console.groupEnd();
+    return `AUTH_ERROR: Authentication required for ${operation}. Please log in again.`;
+  }
+
+  console.log('❌ UNKNOWN ERROR during project operation');
+  console.groupEnd();
+  return `UNKNOWN_ERROR: ${error.message || 'Unknown error'} during ${operation}`;
+}
+
 interface ProjectProviderProps {
   children: ReactNode;
 }
@@ -59,7 +100,17 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
     const loadProjects = async () => {
       try {
         setLoading(true);
+        
+        console.group('📁 Loading Projects');
+        console.log('Starting project load...');
+        
+        const startTime = performance.now();
         const response = await backend.projects.list();
+        const endTime = performance.now();
+        
+        console.log(`✅ Projects loaded in ${(endTime - startTime).toFixed(2)}ms`);
+        console.log('Projects count:', response.projects?.length || 0);
+        
         const convertedProjects = response.projects.map(convertBackendProject);
         setProjects(convertedProjects);
 
@@ -72,23 +123,35 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
           if (savedProjectId) {
             // Find the saved project
             projectToSelect = convertedProjects.find(p => p.id === savedProjectId) || null;
+            console.log('Saved project found:', !!projectToSelect);
           }
 
           // If no saved project found or saved project doesn't exist, select the first one
           if (!projectToSelect) {
             projectToSelect = convertedProjects[0];
+            console.log('Selected first project as default');
           }
 
           // Set the current project
           setCurrentProjectState(projectToSelect);
           localStorage.setItem('currentProjectId', projectToSelect.id);
+          console.log('Current project set:', projectToSelect.name);
         } else {
           // No projects available, clear current project and localStorage
+          console.log('No projects available');
           setCurrentProjectState(null);
           localStorage.removeItem('currentProjectId');
         }
+        
+        console.groupEnd();
       } catch (error) {
-        console.error('Failed to load projects:', error);
+        console.group('❌ Project Loading Failed');
+        console.error('Raw project loading error:', error);
+        
+        const errorMessage = analyzeProjectError(error, 'project_loading');
+        console.log('Analyzed error:', errorMessage);
+        console.groupEnd();
+        
         // On error, still try to set loading to false and clear current project
         setCurrentProjectState(null);
         localStorage.removeItem('currentProjectId');
@@ -101,16 +164,19 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   }, [backend]);
 
   const setCurrentProject = (project: Project) => {
+    console.log('🎯 Setting current project:', project.name);
     setCurrentProjectState(project);
     localStorage.setItem('currentProjectId', project.id);
   };
 
   const addProject = (project: Project) => {
+    console.log('➕ Adding new project:', project.name);
     setProjects(prev => {
       const newProjects = [project, ...prev];
       
       // If this is the first project, automatically select it
       if (prev.length === 0) {
+        console.log('First project added - auto-selecting');
         setCurrentProjectState(project);
         localStorage.setItem('currentProjectId', project.id);
       }
@@ -120,6 +186,7 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   };
 
   const updateProject = (projectId: string, updates: Partial<Project>) => {
+    console.log('✏️ Updating project:', projectId, updates);
     setProjects(prev => 
       prev.map(p => p.id === projectId ? { ...p, ...updates } : p)
     );
@@ -131,6 +198,7 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
   };
 
   const removeProject = (projectId: string) => {
+    console.log('🗑️ Removing project:', projectId);
     setProjects(prev => {
       const newProjects = prev.filter(p => p.id !== projectId);
       
@@ -139,10 +207,12 @@ export function ProjectProvider({ children }: ProjectProviderProps) {
         if (newProjects.length > 0) {
           // Select the first available project
           const newCurrentProject = newProjects[0];
+          console.log('Selecting new current project:', newCurrentProject.name);
           setCurrentProjectState(newCurrentProject);
           localStorage.setItem('currentProjectId', newCurrentProject.id);
         } else {
           // No projects left
+          console.log('No projects remaining');
           setCurrentProjectState(null);
           localStorage.removeItem('currentProjectId');
         }

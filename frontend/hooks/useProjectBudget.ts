@@ -16,6 +16,47 @@ export interface BudgetSummary {
   }[];
 }
 
+// Enhanced error analysis for budget operations
+function analyzeBudgetError(error: any, operation: string): string {
+  console.group(`🔍 Budget Error Analysis - ${operation}`);
+  console.log('Raw error:', error);
+  console.log('Error type:', typeof error);
+  console.log('Error constructor:', error?.constructor?.name);
+  
+  // Network-level errors
+  if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+    console.log('❌ NETWORK ERROR: Cannot reach backend for budget operations');
+    console.groupEnd();
+    return `NETWORK_ERROR: Cannot connect to backend for ${operation}. Check if backend is running.`;
+  }
+
+  // HTTP status errors
+  if (error.status || error.statusCode) {
+    const status = error.status || error.statusCode;
+    console.log(`❌ HTTP ERROR: Status ${status} during ${operation}`);
+    console.groupEnd();
+    return `HTTP_${status}: Server error during ${operation}. Check backend logs.`;
+  }
+
+  // Timeout errors
+  if (error.message.includes('timeout')) {
+    console.log('❌ TIMEOUT ERROR: Budget operation timed out');
+    console.groupEnd();
+    return `TIMEOUT_ERROR: ${operation} request timed out. Backend may be slow.`;
+  }
+
+  // Authentication errors
+  if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+    console.log('❌ AUTH ERROR: Unauthorized budget operation');
+    console.groupEnd();
+    return `AUTH_ERROR: Authentication required for ${operation}. Please log in again.`;
+  }
+
+  console.log('❌ UNKNOWN ERROR during budget operation');
+  console.groupEnd();
+  return `UNKNOWN_ERROR: ${error.message || 'Unknown error'} during ${operation}`;
+}
+
 export function useProjectBudget() {
   const { currentProject, loading: projectLoading } = useProject();
   const [budgetSummary, setBudgetSummary] = useState<BudgetSummary | null>(null);
@@ -27,10 +68,12 @@ export function useProjectBudget() {
   const fetchBudgetSummary = useCallback(async (showLoadingState = true) => {
     // Don't try to load budget if projects are still loading
     if (projectLoading) {
+      console.log('⏳ Waiting for projects to load before loading budget');
       return;
     }
 
     if (!currentProject) {
+      console.log('ℹ️ No current project - clearing budget');
       setBudgetSummary(null);
       setLoading(false);
       setError(null);
@@ -43,16 +86,33 @@ export function useProjectBudget() {
       }
       setError(null);
       
+      console.group('💰 Loading Budget Summary');
+      console.log('Project ID:', currentProject.id);
+      console.log('Project name:', currentProject.name);
+      console.log('Retry count:', retryCount);
+      
       // Add timeout to the frontend request
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), 15000)
+        setTimeout(() => reject(new Error('TIMEOUT: Budget loading request timed out after 15 seconds')), 15000)
       );
+      
+      console.log('📡 Making budget request...');
+      const startTime = performance.now();
       
       // Pass the project ID as string to filter budget data
       const summary = await Promise.race([
         backend.budget.getSummary({ projectId: String(currentProject.id) }),
         timeoutPromise
       ]) as BudgetSummaryResponse;
+      
+      const endTime = performance.now();
+      console.log(`✅ Budget loaded in ${(endTime - startTime).toFixed(2)}ms`);
+      console.log('Budget summary:', {
+        totalBudget: summary.totalBudget,
+        totalSpent: summary.totalSpent,
+        expenseCount: summary.expenses?.length || 0
+      });
+      console.groupEnd();
       
       // Transform the response to match our expected format
       const transformedSummary: BudgetSummary = {
@@ -67,12 +127,17 @@ export function useProjectBudget() {
       setBudgetSummary(transformedSummary);
       setRetryCount(0); // Reset retry count on success
     } catch (err: any) {
-      console.error('Failed to fetch budget summary:', err);
+      console.group('❌ Budget Loading Failed');
+      console.error('Raw budget loading error:', err);
+      
+      const errorMessage = analyzeBudgetError(err, 'budget_loading');
+      console.log('Analyzed error:', errorMessage);
       
       // Don't show error state immediately, try to retry a few times
       if (retryCount < 2) {
-        console.log(`Retrying budget load (attempt ${retryCount + 1})`);
+        console.log(`🔄 Retrying budget load (attempt ${retryCount + 1}/3)`);
         setRetryCount(prev => prev + 1);
+        console.groupEnd();
         
         // Retry after a short delay
         setTimeout(() => {
@@ -82,17 +147,8 @@ export function useProjectBudget() {
         return;
       }
       
-      let errorMessage = 'Failed to load budget summary';
-      if (err?.message) {
-        if (err.message.includes('timeout')) {
-          errorMessage = 'Request timed out. Please check your connection and try again.';
-        } else if (err.message.includes('network')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
-        } else {
-          errorMessage = err.message;
-        }
-      }
-      
+      console.log('❌ Max retries reached - showing error state');
+      console.groupEnd();
       setError(errorMessage);
     } finally {
       if (showLoadingState) {
@@ -103,6 +159,7 @@ export function useProjectBudget() {
 
   useEffect(() => {
     if (!projectLoading) {
+      console.log('🔄 Project changed or projects loaded - reloading budget');
       setRetryCount(0); // Reset retry count when project changes
       fetchBudgetSummary();
     }
@@ -117,6 +174,7 @@ export function useProjectBudget() {
 
   const refreshBudget = useCallback(() => {
     if (!projectLoading) {
+      console.log('🔄 Manual budget refresh requested');
       setRetryCount(0); // Reset retry count on manual refresh
       fetchBudgetSummary();
     }
