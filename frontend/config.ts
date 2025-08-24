@@ -46,7 +46,7 @@ export const backendBaseUrl = (() => {
   return selectedUrl;
 })();
 
-// Connection test function for debugging
+// Enhanced connection test function for debugging production issues
 export function testBackendConnection() {
   console.group('🔍 Backend Connection Test');
   console.log('Configured backend URL:', backendBaseUrl);
@@ -57,31 +57,52 @@ export function testBackendConnection() {
     origin: window.location.origin
   });
   
-  // Test if the backend URL is reachable
-  if (backendBaseUrl) {
-    console.log('Testing connection to:', backendBaseUrl);
-    fetch(backendBaseUrl + '/health', { 
+  // Test multiple endpoints to verify backend availability
+  const testEndpoints = [
+    '/health/ping',
+    '/health/production'
+  ];
+  
+  testEndpoints.forEach(endpoint => {
+    const testUrl = backendBaseUrl ? backendBaseUrl + endpoint : endpoint;
+    console.log(`Testing connection to: ${testUrl}`);
+    
+    fetch(testUrl, { 
       method: 'GET',
       mode: 'cors',
       headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       }
     })
     .then(response => {
-      console.log('✅ Backend connection test result:', {
+      console.log(`✅ ${endpoint} connection test result:`, {
         status: response.status,
         statusText: response.statusText,
+        url: response.url,
         headers: Object.fromEntries(response.headers.entries())
       });
+      return response.json();
+    })
+    .then(data => {
+      console.log(`📊 ${endpoint} response data:`, data);
     })
     .catch(error => {
-      console.log('❌ Backend connection test failed:', error);
+      console.log(`❌ ${endpoint} connection test failed:`, {
+        error: error.message,
+        type: error.name,
+        stack: error.stack
+      });
     });
-  } else {
-    console.log('ℹ️ Using default backend configuration - no explicit URL to test');
-  }
+  });
   
   console.groupEnd();
+}
+
+// Auto-run connection test in production for debugging
+if (typeof window !== 'undefined' && window.location.hostname === 'renosteps.app') {
+  console.log('🚀 Production environment detected - running connection test');
+  setTimeout(testBackendConnection, 1000);
 }
 
 // Notes:
@@ -92,3 +113,4 @@ export function testBackendConnection() {
 // - In production, we use the direct Encore API URL to avoid proxy issues.
 // - Enhanced with detailed logging for debugging connection issues.
 // - The JWT secret is now handled gracefully with a default for development.
+// - Auto-runs connection test in production for immediate debugging feedback.

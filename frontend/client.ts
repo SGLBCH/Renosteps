@@ -308,6 +308,7 @@ export namespace contractors {
  * Import the endpoint handlers to derive the types for the client.
  */
 import { ping as api_health_ping_ping } from "~backend/health/ping";
+import { productionCheck as api_health_production_check_productionCheck } from "~backend/health/production-check";
 
 export namespace health {
 
@@ -317,6 +318,7 @@ export namespace health {
         constructor(baseClient: BaseClient) {
             this.baseClient = baseClient
             this.ping = this.ping.bind(this)
+            this.productionCheck = this.productionCheck.bind(this)
         }
 
         /**
@@ -326,6 +328,15 @@ export namespace health {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI(`/health/ping`, {method: "GET", body: undefined})
             return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_health_ping_ping>
+        }
+
+        /**
+         * Enhanced production health check with more detailed information
+         */
+        public async productionCheck(): Promise<ResponseType<typeof api_health_production_check_productionCheck>> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI(`/health/production`, {method: "GET", body: undefined})
+            return JSON.parse(await resp.text(), dateReviver) as ResponseType<typeof api_health_production_check_productionCheck>
         }
     }
 }
