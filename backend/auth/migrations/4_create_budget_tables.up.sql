@@ -27,3 +27,7 @@ CREATE INDEX idx_budget_expenses_category ON budget_expenses(category);
 CREATE INDEX idx_budget_expenses_date ON budget_expenses(date);
 CREATE INDEX idx_budget_expenses_project_id ON budget_expenses(project_id);
 CREATE INDEX idx_budget_expenses_user_id ON budget_expenses(user_id);
+
+-- Add foreign key constraints
+ALTER TABLE budget_settings ADD CONSTRAINT fk_budget_settings_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE budget_expenses ADD CONSTRAINT fk_budget_expenses_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;

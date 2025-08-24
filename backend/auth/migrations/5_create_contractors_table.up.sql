@@ -15,3 +15,6 @@ CREATE TABLE contractors (
 
 -- Create index for user_id
 CREATE INDEX idx_contractors_user_id ON contractors(user_id);
+
+-- Add foreign key constraint
+ALTER TABLE contractors ADD CONSTRAINT fk_contractors_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;

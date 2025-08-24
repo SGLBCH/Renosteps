@@ -39,3 +39,7 @@ CREATE INDEX idx_subtasks_task_id ON subtasks(task_id);
 CREATE INDEX idx_subtasks_completed ON subtasks(completed);
 CREATE INDEX idx_subtasks_user_id ON subtasks(user_id);
 CREATE INDEX idx_subtasks_project_id ON subtasks(project_id);
+
+-- Add foreign key constraints
+ALTER TABLE tasks ADD CONSTRAINT fk_tasks_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE subtasks ADD CONSTRAINT fk_subtasks_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;

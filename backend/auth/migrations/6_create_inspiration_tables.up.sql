@@ -26,3 +26,6 @@ CREATE INDEX idx_inspirations_project_id ON inspirations(project_id);
 CREATE INDEX idx_inspirations_user_id ON inspirations(user_id);
 CREATE INDEX idx_inspirations_file_url ON inspirations(file_url);
 CREATE INDEX idx_inspiration_files_inspiration_id ON inspiration_files(inspiration_id);
+
+-- Add foreign key constraint
+ALTER TABLE inspirations ADD CONSTRAINT fk_inspirations_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
