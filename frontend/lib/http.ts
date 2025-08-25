@@ -32,13 +32,13 @@ class HttpClient {
     // Initialize the backend client with proper configuration
     if (backendBaseUrl) {
       console.log('🔧 Initializing HTTP client with custom backend URL:', backendBaseUrl);
-      this.client = backend.with({ 
+      this.client = backend.with({
         baseURL: backendBaseUrl,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
+          'X-Requested-With': 'XMLHttpRequest',
+        },
       });
     } else {
       console.log('🔧 Initializing HTTP client with default configuration');
@@ -64,9 +64,9 @@ class HttpClient {
       // Simple ping test with shorter timeout
       const response = await Promise.race([
         this.client.health.ping(),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Health check timeout')), 5000)
-        )
+        ),
       ]);
 
       console.log('✅ Health check passed:', response);
@@ -84,17 +84,20 @@ class HttpClient {
   // Centralized request wrapper with timeout, retry, and health checks
   async request<T>(operation: () => Promise<T>, operationName: string): Promise<T> {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 1; attempt <= this.config.retries!; attempt++) {
       try {
         console.log(`📡 Attempting ${operationName} (attempt ${attempt}/${this.config.retries})`);
-        
+
         // Add timeout to the operation
         const result = await Promise.race([
           operation(),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`${operationName} timed out after ${this.config.timeout}ms`)), this.config.timeout)
-          )
+            setTimeout(
+              () => reject(new Error(`${operationName} timed out after ${this.config.timeout}ms`)),
+              this.config.timeout
+            )
+          ),
         ]);
 
         console.log(`✅ ${operationName} completed successfully`);
@@ -113,7 +116,7 @@ class HttpClient {
         if (attempt < this.config.retries!) {
           const delay = this.config.retryDelay! * attempt; // Exponential backoff
           console.log(`⏳ Waiting ${delay}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
@@ -152,7 +155,7 @@ class HttpClient {
   // Enhance error with more context
   private enhanceError(error: Error, operationName: string): HttpError {
     const enhanced = error as HttpError;
-    
+
     if (error.message.includes('Failed to fetch')) {
       enhanced.message = `Network error during ${operationName}. Please check your connection.`;
     } else if (error.message.includes('timeout')) {
@@ -166,15 +169,22 @@ class HttpClient {
 
   // Get authenticated client
   withAuth(token: string) {
-    // Send both Authorization and X-Authorization for proxy compatibility
-    const authenticatedClient = this.client.with({
-      auth: async () => ({
-        authorization: `Bearer ${token}`,
-        'x-authorization': `Bearer ${token}`,
-      }),
+    // Ensure "Bearer " prefix
+    const headerToken = token?.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
+    // Provide Authorization via the built-in auth hook AND duplicate headers for proxy compatibility.
+    // Use proper header casing to satisfy strict proxies/CDNs.
+    const authenticatedUnderlyingClient = this.client.with({
+      auth: async () => headerToken,
+      headers: {
+        'Authorization': headerToken,
+        'X-Authorization': headerToken,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
     });
 
-    return new HttpClient(this.config).setClient(authenticatedClient);
+    // Return a new HttpClient instance that uses the authenticated underlying client
+    return new HttpClient(this.config).setClient(authenticatedUnderlyingClient);
   }
 
   private setClient(client: any): HttpClient {
