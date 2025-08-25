@@ -3,31 +3,34 @@ import { authHandler } from "encore.dev/auth";
 import { verifyToken } from "./utils";
 import type { AuthData } from "./types";
 
-// Auth parameters - only Authorization header is needed for JWT
+// Auth parameters - accept standard Authorization and X-Authorization headers to be proxy-friendly
 interface AuthParams {
   authorization?: Header<"Authorization">;
+  xAuthorization?: Header<"X-Authorization">;
 }
 
 /**
  * Auth handler that validates JWT tokens from Authorization header
+ * Also supports X-Authorization to handle proxies that strip Authorization
  * This runs automatically for any API endpoint with auth: true
  */
 const auth = authHandler<AuthParams, AuthData>(
   async (params) => {
-    // Check if Authorization header is present
-    if (!params.authorization) {
+    // Prefer standard Authorization header, fall back to X-Authorization for proxy compatibility
+    const rawHeader = params.authorization ?? params.xAuthorization;
+
+    if (!rawHeader) {
       throw APIError.unauthenticated("Missing authorization header");
     }
 
-    // Extract token from "Bearer <token>" format
-    const authHeader = params.authorization;
-    const parts = authHeader.split(" ");
-    
-    if (parts.length !== 2 || parts[0] !== "Bearer") {
-      throw APIError.unauthenticated("Invalid authorization header format. Expected 'Bearer <token>'");
+    // Support both "Bearer <token>" and raw token formats
+    let token = rawHeader.trim();
+    const parts = token.split(" ");
+
+    if (parts.length === 2 && parts[0] === "Bearer") {
+      token = parts[1];
     }
 
-    const token = parts[1];
     if (!token) {
       throw APIError.unauthenticated("Missing token in authorization header");
     }
@@ -35,7 +38,7 @@ const auth = authHandler<AuthParams, AuthData>(
     try {
       // Verify the JWT token and extract user info
       const decoded = await verifyToken(token);
-      
+
       return {
         userID: decoded.userId.toString(),
         email: decoded.email,

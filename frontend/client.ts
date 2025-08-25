@@ -951,7 +951,8 @@ class BaseClient {
             const data: CallParameters = {};
 
             data.headers = makeRecord<string, string>({
-                authorization: authData.authorization,
+                authorization:     authData.authorization,
+                "x-authorization": authData.xAuthorization,
             });
 
             return data;

@@ -166,9 +166,11 @@ class HttpClient {
 
   // Get authenticated client
   withAuth(token: string) {
+    // Send both Authorization and X-Authorization for proxy compatibility
     const authenticatedClient = this.client.with({
       auth: async () => ({
         authorization: `Bearer ${token}`,
+        'x-authorization': `Bearer ${token}`,
       }),
     });
 

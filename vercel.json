@@ -11,7 +11,7 @@
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://renosteps.app"
+          "value": "https://www.renosteps.app"
         },
         {
           "key": "Access-Control-Allow-Methods",
@@ -19,7 +19,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization, X-Requested-With"
+          "value": "Content-Type, Authorization, X-Authorization, X-Requested-With"
         },
         {
           "key": "Access-Control-Allow-Credentials",
