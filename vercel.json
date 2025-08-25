@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://prod-renovation-task-manager-bnki.encr.app/$1"
+      "destination": "https://prod-renovation-task-manager-bnki.encr.app/api/$1"
     }
   ],
   "headers": [
