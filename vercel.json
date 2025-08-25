@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://renovation-task-manager-d2evcgk82vjt19ur26rg.lp.dev/$1"
+      "destination": "https://prod-renovation-task-manager-bnki.encr.app/$1"
     }
   ],
   "headers": [
